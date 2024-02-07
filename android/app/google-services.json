@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "2116569799",
+    "project_id": "chat-ai-app-bdd54",
+    "storage_bucket": "chat-ai-app-bdd54.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:2116569799:android:dbf0b7befbccf5de2f0ce2",
+        "android_client_info": {
+          "package_name": "com.example.chat_ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmAGgAV3RBvFMwVcKbsM1NYK4qH1iZw3o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,16 +1,8 @@
 # chat_ai
 
-A new Flutter project.
+A new Flutter project --> Assistant AI app based on the Google Gemini model, which supports chat with text typing with adding image or speech in English, Arabic, and French, along with other features.
 
-## Getting Started
+UI(some screens) --> (https://github.com/SellamiWalid/chatAI_app/assets/119450519/3f58a6e0-4fba-44be-b1d7-b60a06e4a5c8) - 
+(https://github.com/SellamiWalid/chatAI_app/assets/119450519/a44fa698-6369-41fe-84c2-69c0bd7813e9) - 
+(https://github.com/SellamiWalid/chatAI_app/assets/119450519/bcf7bcc6-0023-428e-92ef-1adb466f8696)
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.

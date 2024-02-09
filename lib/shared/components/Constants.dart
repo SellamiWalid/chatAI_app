@@ -3,7 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 const String baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
-const String apiKey = 'AIzaSyDFJGyck84iWwqQ3W4DE0rbcnFAQrHJ3F0';
+const String apiKey = 'Your_Api_Key';
 
 // For Gemini Pro
 const Map<String, dynamic> generationConfig = {
@@ -55,9 +55,3 @@ dynamic uId;
 const String profile =
     'https://t4.ftcdn.net/jpg/00/64/67/63/360_F_64676383_LdbmhiNM6Ypzb3FM4PPuFP9rHe7ri8Ju.webp';
 
-
-// curl \
-// -H 'Content-Type: application/json' \
-// -d '{"contents":[{"parts":[{"text":"Write a story about a magic backpack"}]}]}' \
-// -X POST https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?
-// key=Your_Api_Key

@@ -87,6 +87,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   bool canExit = false;
 
+  bool isChatEmpty = false;
+
   String local = 'en-US';
 
   void toast(text) {
@@ -331,7 +333,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
                     var cubit = AppCubit.get(context);
 
-                    if(state is SuccessGetMessagesAppState || state is SuccessGetChatsAppState) {
+                    if(state is SuccessGetMessagesAppState) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         scrollToBottom();
                       });
@@ -366,10 +368,20 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                       );
 
                       if(checkCubit.hasInternet) {
-                        AppCubit.get(context).removeMessage(
+                          cubit.removeMessage(
                             idChat: cubit.groupedIdChats.values.
                             elementAt(cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0],
                             idMessage: cubit.idMessages[cubit.idMessages.length - 1]);
+                          Future.delayed(const Duration(milliseconds: 600)).then((value) {
+                            if(cubit.messages.isEmpty) {
+                              setState(() {
+                                isChatEmpty = true;
+                              });
+                              cubit.clearIndexing();
+                              cubit.removeChat(idChat: cubit.groupedIdChats.values.
+                              elementAt(0)[0]);
+                            }
+                          });
                       }
 
                       setState(() {
@@ -396,16 +408,21 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                     }
 
                     if(state is SuccessRemoveChatAppState) {
-                      showFlutterToast(
-                          message: 'Done with success',
-                          state: ToastStates.success,
-                          context: context);
-                      if(cubit.messages.isEmpty && (cubit.currentIndex != null)) {
-                        cubit.getMessages(idChat: cubit.groupedIdChats.values
-                            .elementAt(cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0]);
+                      if(!isChatEmpty) {
+                        showFlutterToast(
+                            message: 'Done with success',
+                            state: ToastStates.success,
+                            context: context);
+                        if(cubit.messages.isEmpty && (cubit.currentIndex != null)) {
+                          int index = cubit.currentIndex!;
+                          if(cubit.groupedIdChats.values.elementAt(cubit.globalIndex ?? 0).length >= index+1) {
+                            cubit.getMessages(idChat: cubit.groupedIdChats.values
+                                .elementAt(cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0]);
+                          }
+                        }
+                        Navigator.pop(context);
+                        Navigator.pop(context);
                       }
-                      Navigator.pop(context);
-                      Navigator.pop(context);
                     }
 
                     if(state is ErrorRenameChatAppState) {
@@ -728,7 +745,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                                                   }
                                                 },
                                                 validator: (value) {
-                                                  if(value != null && value.length > 26000) {
+                                                  if(value != null && value.length > 10000) {
                                                     return 'Text is too large';
                                                   }
                                                   return null;
@@ -1508,6 +1525,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                   borderRadius: BorderRadius.circular(10.0),
                 ),
                 onTap: () {
+                  setState(() {
+                    isChatEmpty = false;
+                  });
                   showAlertRemove(context, idChat);
                 },
                 leading: Icon(
@@ -1661,7 +1681,6 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                     AppCubit.get(context).removeChat(idChat: idChat);
                     Navigator.pop(dialogContext);
                     showLoading(context);
-
                   } else {
                     Navigator.pop(dialogContext);
                     showFlutterToast(
@@ -1811,21 +1830,31 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
 
   List<TextSpan> buildTextSpans(String inputText) {
-    final RegExp regex =
-    RegExp(r'(?:(?:https?|ftp)://)?[\w/\-?=%.]+\.[\w/\-?=%.]+',
-        caseSensitive: false);
-    final matches = regex.allMatches(inputText);
+    final RegExp urlRegex = RegExp(
+      r'\b(?:https?|ftp)://[\w\-?=%.]+\.[a-zA-Z]{2,}(?:/\S*)?\b',
+      caseSensitive: false,
+    );
+
+    // final RegExp titleRegex = RegExp(
+    //   r'\* \w+\.\w+:',
+    //   caseSensitive: false,
+    // );
 
     List<TextSpan> spans = [];
-
     int previousEnd = 0;
-    for (Match match in matches) {
+
+    Iterable<Match> urlMatches = urlRegex.allMatches(inputText);
+    // Iterable<Match> titleMatches = titleRegex.allMatches(inputText);
+
+    for (Match match in urlMatches) {
       if (match.start > previousEnd) {
         spans.add(
           TextSpan(
             text: inputText.substring(previousEnd, match.start),
             style: TextStyle(
-              color: ThemeCubit.get(context).isDarkTheme ? Colors.white : Colors.black,
+              color: ThemeCubit.get(context).isDarkTheme
+                  ? Colors.white
+                  : Colors.black,
             ),
           ),
         );
@@ -1838,40 +1867,67 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
           ),
           recognizer: TapGestureRecognizer()
             ..onTap = () async {
-            if(CheckCubit.get(context).hasInternet) {
-              await HapticFeedback.vibrate();
-              String url = match.group(0) ?? '';
-              if(!url.contains('https') || !url.contains('http')) {
-                url = 'https://${match.group(0)}';
-              }
-              await lunch(url).then((value) {
+              if(CheckCubit.get(context).hasInternet) {
+                await HapticFeedback.vibrate();
+                String url = match.group(0) ?? '';
+                if(!url.contains('https') || !url.contains('http')) {
+                  url = 'https://${match.group(0)}';
+                }
+                await lunch(url).then((value) {
+                  showFlutterToast(
+                      message: 'Opening ...',
+                      state: ToastStates.success,
+                      context: context);
+                }).catchError((error) {
+                  showFlutterToast(
+                      message: error.toString(),
+                      state: ToastStates.error,
+                      context: context);
+                });
+              } else {
                 showFlutterToast(
-                    message: 'Opening ...',
-                    state: ToastStates.success,
-                    context: context);
-              }).catchError((error) {
-                showFlutterToast(
-                    message: error.toString(), 
+                    message: 'No Internet Connection',
                     state: ToastStates.error,
                     context: context);
-              }); 
-             } else {
-              showFlutterToast(
-                  message: 'No Internet Connection',
-                  state: ToastStates.error,
-                  context: context);
-            }
+              }
             },
         ),
       );
       previousEnd = match.end;
     }
+
+    // for (Match match in titleMatches) {
+    //   if (match.start > previousEnd) {
+    //     spans.add(
+    //       TextSpan(
+    //         text: inputText.substring(previousEnd, match.start),
+    //         style: TextStyle(
+    //           color: ThemeCubit.get(context).isDarkTheme
+    //               ? Colors.white
+    //               : Colors.black,
+    //         ),
+    //       ),
+    //     );
+    //   }
+    //   spans.add(
+    //     TextSpan(
+    //       text: match.group(0),
+    //       style: TextStyle(
+    //         color: greenColor,
+    //       ),
+    //     ),
+    //   );
+    //   previousEnd = match.end;
+    // }
+
     if (previousEnd < inputText.length) {
       spans.add(
         TextSpan(
           text: inputText.substring(previousEnd, inputText.length),
           style: TextStyle(
-            color: ThemeCubit.get(context).isDarkTheme ? Colors.white : Colors.black,
+            color: ThemeCubit.get(context).isDarkTheme
+                ? Colors.white
+                : Colors.black,
           ),
         ),
       );
@@ -1879,6 +1935,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
     return spans;
   }
+
+
 
 
   Future<void> lunch(String url) async {

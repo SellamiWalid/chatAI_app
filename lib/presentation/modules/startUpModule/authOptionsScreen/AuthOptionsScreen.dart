@@ -141,8 +141,8 @@ class _AuthOptionsScreenState extends State<AuthOptionsScreen> {
                               startDelay: const Duration(milliseconds: 1000),
                               duration: const Duration(milliseconds: 2000),
                               glowColor: themeCubit.isDarkTheme
-                                  ? Colors.blue.shade900
-                                  : Colors.blue.shade100,
+                                  ? Colors.blueGrey.shade800
+                                  : Colors.lightBlue.shade100,
                               glowShape: BoxShape.circle,
                               animate: isAnimate,
                               curve: Curves.fastOutSlowIn,

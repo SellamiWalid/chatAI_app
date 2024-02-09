@@ -86,7 +86,7 @@ Widget defaultFormField({
   decoration: InputDecoration(
     labelText: label,
     errorMaxLines: 3,
-    // fillColor: ThemeCubit.get(context).isDark ? firstDarkColor : Colors.blueGrey.shade100.withOpacity(.1),
+    // fillColor: ThemeCubit.get(context).isDarkTheme ? firstDarkColor : Colors.blueGrey.shade100.withOpacity(.1),
     // filled: (isAuth == true) ? true : null,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10.0),

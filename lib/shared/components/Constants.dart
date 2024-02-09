@@ -3,7 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 const String baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
-const String apiKey = 'Your_Api_Key';
+const String apiKey = 'AIzaSyDFJGyck84iWwqQ3W4DE0rbcnFAQrHJ3F0';
 
 // For Gemini Pro
 const Map<String, dynamic> generationConfig = {

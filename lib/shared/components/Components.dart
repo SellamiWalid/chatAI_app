@@ -238,6 +238,7 @@ defaultAppBar({
   List<Widget>? actions,
 }) => AppBar(
   clipBehavior: Clip.antiAlias,
+  scrolledUnderElevation: 0.0,
   leading: IconButton(
     onPressed: () {
       onPress();
@@ -419,11 +420,6 @@ dynamic showAlertVerification(BuildContext context) {
         child: PopScope(
           canPop: false,
           child: AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(
-                16.0,
-              ),
-            ),
             title: Text(
               'Time is up!',
               textAlign: TextAlign.center,

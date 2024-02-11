@@ -205,7 +205,6 @@ class _SearchChatScreenState extends State<SearchChatScreen> {
         onTap: () {
           if(CheckCubit.get(context).hasInternet) {
             AppCubit.get(context).changeIndexing(gIndex: gIndex, innerIndex: actualIndex);
-            AppCubit.get(context).clearMessages();
             AppCubit.get(context).getMessages(idChat: idChat);
             navigateAndNotReturn(context: context, screen: const ChatScreen());
           } else {

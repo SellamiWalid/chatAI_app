@@ -415,9 +415,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                             context: context);
                         if(cubit.messages.isEmpty && (cubit.currentIndex != null)) {
                           int index = cubit.currentIndex!;
-                          if(cubit.groupedIdChats.values.elementAt(cubit.globalIndex ?? 0).length >= index+1) {
+                          if(cubit.groupedIdChats.values.elementAt(cubit.globalIndex!).length >= index+1) {
                             cubit.getMessages(idChat: cubit.groupedIdChats.values
-                                .elementAt(cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0]);
+                                .elementAt(cubit.globalIndex!)[cubit.currentIndex!]);
                           }
                         }
                         Navigator.pop(context);
@@ -550,7 +550,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                                       padding: const EdgeInsets.fromLTRB(14.0, 8.0, 14.0, 0.0),
                                       child: ListView.separated(
                                         controller: scrollController,
-                                        itemBuilder: (context, index) => buildItemMessage(cubit.messages[index]),
+                                        itemBuilder: (context, index) => buildItemMessage(cubit.messages[index], index),
                                         separatorBuilder: (context, index) => const SizedBox(
                                           height: 20.0,
                                         ),
@@ -1710,7 +1710,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
 
   // Messages
-  Widget buildItemMessage(msg) => Align(
+  Widget buildItemMessage(msg, index) => Align(
     alignment: (msg['is_user']) ? Alignment.centerRight: Alignment.centerLeft,
     child: (msg['is_user']) ?
     FadeInRight(
@@ -1738,48 +1738,52 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12.0),
-              child: Image.network(
-                '${msg['image_url']}',
-                width: 150.0,
-                height: 150.0,
-                fit: BoxFit.cover,
-                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                  if(frame == null) {
+            GestureDetector(
+              onTap: () {
+                showFullImage(msg['image_url']);
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12.0),
+                child: Image.network(
+                  '${msg['image_url']}',
+                  width: 150.0,
+                  height: 150.0,
+                  fit: BoxFit.cover,
+                  frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                    if(frame == null) {
+                      return Container(
+                          width: 150.0,
+                          height: 150.0,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12.0,),
+                            color: Colors.blue.shade800,
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                      );
+                    }
+                    return FadeIn(
+                        duration: const Duration(milliseconds: 300),
+                        child: child);
+                  },
+                  errorBuilder: (context, error, stackTrace) {
                     return Container(
-                        width: 150.0,
-                        height: 150.0,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12.0,),
-                          color: Colors.blue.shade800,
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                    );
-                  }
-                  return FadeIn(
-                    duration: const Duration(milliseconds: 300),
-                    child: child,
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 150.0,
-                    height: 150.0,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12.0,),
-                      color: Colors.blue.shade800,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: const Center(
-                      child: Icon(
-                        Icons.error_outline_rounded,
-                        size: 30.0,
-                        color: Colors.white,
+                      width: 150.0,
+                      height: 150.0,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12.0,),
+                        color: Colors.blue.shade800,
                       ),
-                    ),
-                  );
-                },
+                      clipBehavior: Clip.antiAlias,
+                      child: const Center(
+                        child: Icon(
+                          Icons.error_outline_rounded,
+                          size: 30.0,
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             const SizedBox(
@@ -1827,6 +1831,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       ),
     ),
   );
+
 
 
   List<TextSpan> buildTextSpans(String inputText) {
@@ -2130,4 +2135,49 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       );
     },
   );
+
+
+  dynamic showFullImage(String imageUrl) =>
+       Navigator.of(context).push(createSecondRoute(screen: Scaffold(
+         body: SafeArea(
+           child: SlideInRight(
+             duration: const Duration(seconds: 1),
+             child: GestureDetector(
+               onTap: () {
+                 Navigator.pop(context);
+               },
+               child: InteractiveViewer(
+                 child: Image.network(imageUrl,
+                   width: MediaQuery.of(context).size.width,
+                   height: MediaQuery.of(context).size.height,
+                   fit: BoxFit.fitWidth,
+                   frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                     if(frame == null) {
+                       return SizedBox(
+                         width: MediaQuery.of(context).size.width,
+                         height: MediaQuery.of(context).size.height,
+                         child: Center(child: LoadingIndicator(os: getOs())),
+                       );
+                     }
+                     return child;
+                   },
+                   errorBuilder: (context, error, stackTrace) {
+                     return SizedBox(
+                       width: MediaQuery.of(context).size.width,
+                       height: MediaQuery.of(context).size.height,
+                       child: Center(
+                         child: Icon(
+                           Icons.error_outline_rounded,
+                           size: 46.0,
+                           color: ThemeCubit.get(context).isDarkTheme ? Colors.white : Colors.black,
+                         ),
+                       ),
+                     );
+                   },
+                 ),
+               ),
+             ),
+           ),
+         ),
+       ),));
 }

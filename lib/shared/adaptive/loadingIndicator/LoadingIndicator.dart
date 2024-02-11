@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 class LoadingIndicator extends StatelessWidget {
 
   final String os;
+  final Color? color;
 
-  const LoadingIndicator({super.key, required this.os});
+  const LoadingIndicator({super.key, required this.os, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -13,13 +14,13 @@ class LoadingIndicator extends StatelessWidget {
     if(os == 'android') {
 
       return CircularProgressIndicator(
-        color: Theme.of(context).colorScheme.primary,
+        color: color ?? Theme.of(context).colorScheme.primary,
       );
 
     } else {
 
       return CupertinoActivityIndicator(
-        color: Theme.of(context).colorScheme.primary,
+        color: color ?? Theme.of(context).colorScheme.primary,
       );
 
     }

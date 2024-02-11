@@ -109,7 +109,17 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           var checkCubit = CheckCubit.get(context);
 
           return BlocConsumer<SignUpCubit, SignUpStates>(
-            listener: (context, state) {},
+            listener: (context, state) {
+
+              if(state is ErrorSendEmailVerificationSignUpState) {
+                showFlutterToast(
+                    message: '${state.error}',
+                    state: ToastStates.error,
+                    context: context);
+              }
+
+
+            },
             builder: (context, state) {
               var cubit = SignUpCubit.get(context);
 
@@ -126,14 +136,16 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     title: const Text(
                       'Email Verification',
                       style: TextStyle(
+                        fontSize: 19.0,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 0.6,
                       ),
                     ),
                   ),
                   body: ConditionalBuilder(
                     condition: !cubit.isVerified,
                     builder: (context) => FadeInRight(
-                      duration: const Duration(milliseconds: 400),
+                      duration: const Duration(milliseconds: 300),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -222,7 +234,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                       ),
                     ),
                     fallback: (context) => FadeInDown(
-                      duration: const Duration(milliseconds: 350),
+                      duration: const Duration(milliseconds: 300),
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,

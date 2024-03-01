@@ -82,7 +82,14 @@ class AppCubit extends Cubit<AppStates> {
     currentIndex = null;
     emit(SuccessClearAppState());
   }
-  
+
+  void clearSearchChatId({
+    required String? idSearchChat,
+}) {
+    if(idSearchChat != null) idSearchChat = null;
+    emit(SuccessClearAppState());
+  }
+
   
   List<String> idChats = [];
   List<dynamic> chats = [];
@@ -589,6 +596,8 @@ class AppCubit extends Cubit<AppStates> {
 
   }
 
+
+
   var picker = ImagePicker();
 
   XFile? image;
@@ -613,6 +622,8 @@ class AppCubit extends Cubit<AppStates> {
   }
 
 
+  String statusText = 'Waiting ...';
+
 
   void uploadAndGetImageUrl({
     required String idChat,
@@ -625,6 +636,9 @@ class AppCubit extends Cubit<AppStates> {
     firebase_storage.FirebaseStorage.instance.ref().child('chats/images/${Uri.file(imageUpload!.path).pathSegments.last}')
         .putFile(File(imageUpload!.path)).then((v) async {
 
+          statusText = 'Analyzing image ...';
+          emit(SuccessChangeStatusTextAppState());
+
           await v.ref.getDownloadURL().then((value) async {
 
             await addUserMessage(idChat: idChat, message: message, timesTamp: timesTamp, imageUrl: value).then((value) {
@@ -634,6 +648,8 @@ class AppCubit extends Cubit<AppStates> {
             await postMessageTextWithImage(messageText: message, imageUrl: value, typeImage: typeImage, idChat: idChat);
 
             imageUpload = null;
+
+            statusText = 'Waiting ...';
 
             emit(SuccessGetImageDownloadUrlAppState());
 

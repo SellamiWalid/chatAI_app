@@ -219,3 +219,6 @@ class ErrorRemoveImageStoredAppState extends AppStates {
   ErrorRemoveImageStoredAppState(this.error);
 
 }
+
+// Status Text
+class SuccessChangeStatusTextAppState extends AppStates {}

@@ -100,38 +100,41 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const SizedBox(
                   height: 30.0,
                 ),
-                AvatarGlow(
-                  startDelay: const Duration(milliseconds: 650),
-                  duration: const Duration(milliseconds: 1300),
-                  glowColor: Theme.of(context).colorScheme.primary,
-                  glowShape: BoxShape.circle,
-                  animate: true,
-                  curve: Curves.fastOutSlowIn,
-                  glowCount: 2,
-                  repeat: true,
-                  child: SizedBox(
-                    width: 80.0,
-                    height: 80.0,
-                    child: FloatingActionButton(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50.0),
-                      ),
-                      elevation: 10.0,
-                      clipBehavior: Clip.antiAliasWithSaveLayer,
-                      enableFeedback: true,
-                      onPressed: () async {
-                        if(checkCubit.hasInternet) {
-                          await getStarted(context);
-                        } else {
-                          showFlutterToast(
-                              message: 'No Internet Connection',
-                              state: ToastStates.error,
-                              context: context);
-                        }
-                      },
-                      child: const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 28.0,
+                FadeIn(
+                  duration: const Duration(milliseconds: 400),
+                  child: AvatarGlow(
+                    startDelay: const Duration(milliseconds: 650),
+                    duration: const Duration(milliseconds: 1300),
+                    glowColor: Theme.of(context).colorScheme.primary,
+                    glowShape: BoxShape.circle,
+                    animate: true,
+                    curve: Curves.fastOutSlowIn,
+                    glowCount: 2,
+                    repeat: true,
+                    child: SizedBox(
+                      width: 80.0,
+                      height: 80.0,
+                      child: FloatingActionButton(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(50.0),
+                        ),
+                        elevation: 10.0,
+                        clipBehavior: Clip.antiAliasWithSaveLayer,
+                        enableFeedback: true,
+                        onPressed: () async {
+                          if(checkCubit.hasInternet) {
+                            await getStarted(context);
+                          } else {
+                            showFlutterToast(
+                                message: 'No Internet Connection',
+                                state: ToastStates.error,
+                                context: context);
+                          }
+                        },
+                        child: const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 28.0,
+                        ),
                       ),
                     ),
                   ),

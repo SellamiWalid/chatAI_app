@@ -29,17 +29,22 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:hexcolor/hexcolor.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lottie/lottie.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+
+  final String? idSearchChat;
+
+  const ChatScreen({super.key, this.idSearchChat});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen>
+    with SingleTickerProviderStateMixin {
 
   final TextEditingController msgController = TextEditingController();
 
@@ -55,7 +60,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   final GlobalKey<FormState> anotherFormKey = GlobalKey<FormState>();
 
-  final GlobalKey<RefreshIndicatorState> refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
+  final GlobalKey<RefreshIndicatorState> refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
 
   late AnimationController animationController;
 
@@ -64,6 +70,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   final FlutterTts flutterTts = FlutterTts();
 
   final ScrollController scrollController = ScrollController();
+
+  final ScrollController anotherScrollController = ScrollController();
 
   bool isVisible = false;
   bool isVocalVisible = true;
@@ -91,7 +99,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   String local = 'en-US';
 
-  void toast(text) {
+  void toast(text, {duration = 3500}) {
     showToast(
       text,
       context: context,
@@ -100,16 +108,15 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       reverseAnimation: StyledToastAnimation.fade,
       position: StyledToastPosition.bottom,
       animDuration: const Duration(milliseconds: 1200),
-      duration: const Duration(milliseconds: 3500),
+      duration: Duration(milliseconds: duration),
       curve: Curves.elasticInOut,
       reverseCurve: Curves.linear,
     );
   }
 
-
   void exit(timeBackPressed) {
     final difference = DateTime.now().difference(timeBackPressed);
-    final isWarning = difference >= const Duration(milliseconds: 500);
+    final isWarning = difference >= const Duration(milliseconds: 600);
     timeBackPressed = DateTime.now();
 
     if (isWarning) {
@@ -125,7 +132,6 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     }
   }
 
-
   Future<void> startListening(lang) async {
     await HapticFeedback.vibrate();
     setState(() {
@@ -139,7 +145,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       },
     );
 
-    if(available) {
+    if (available) {
       await speechToText.listen(
         localeId: lang,
         onResult: (value) {
@@ -157,7 +163,6 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     }
   }
 
-
   Future<void> stopListening() async {
     await speechToText.stop();
     setState(() {
@@ -165,15 +170,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     });
   }
 
-
   // For IOS
   void tts() async {
     await flutterTts.setSharedInstance(true);
   }
 
-
   void aiSpeak(content, lang) async {
-    if(isAndroid) {
+    if (isAndroid) {
       await flutterTts.getDefaultVoice;
     }
     await flutterTts.setLanguage(lang);
@@ -183,11 +186,10 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     });
   }
 
-
   Future<void> vocalConfig(lang) async {
     var cubit = AppCubit.get(context);
-    if(!isStartListening && speechToText.isNotListening) {
-      if(isSpeaking) {
+    if (!isStartListening && speechToText.isNotListening) {
+      if (isSpeaking) {
         await flutterTts.stop();
         setState(() {
           isSpeaking = false;
@@ -196,11 +198,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       await startListening(lang);
     } else {
       await stopListening();
-      if(textInput.isNotEmpty) {
+      if (textInput.isNotEmpty) {
         setState(() {
           isMicLoading = true;
         });
-        if(cubit.image != null) {
+        if (cubit.image != null) {
           await Future.delayed(const Duration(milliseconds: 200)).then((value) {
             cubit.clearImage();
           });
@@ -209,14 +211,14 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
           message: textInput,
           dateTime: DateTime.now().toString(),
           timesTamp: Timestamp.now(),
-          idChat: (cubit.chats.isNotEmpty) ?
-          cubit.groupedIdChats.values.
-          elementAt(cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0] : null,
+          idChat: (cubit.chats.isNotEmpty)
+              ? cubit.groupedIdChats.values
+                  .elementAt(cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0]
+              : null,
         );
       }
     }
   }
-
 
   void resetSettings() {
     setState(() {
@@ -233,13 +235,31 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     });
   }
 
-
   void scrollToBottom() async {
-    if(scrollController.hasClients) {
+    if (scrollController.hasClients) {
       await scrollController.animateTo(
           scrollController.position.maxScrollExtent,
-          duration: (isSpeaking) ? const Duration(milliseconds: 1800) : const Duration(seconds: 1),
+          duration: (isSpeaking)
+              ? const Duration(milliseconds: 1800)
+              : const Duration(seconds: 1),
           curve: Curves.easeInOut);
+    }
+  }
+
+  void scrollToCurrentIndex(int globalIndex, int currentIndex) {
+    if (anotherScrollController.hasClients) {
+      double totalOffset = 0.0;
+      for (int i = 0; i < globalIndex; i++) {
+        int nbrItems = AppCubit.get(context).groupedChats.values.elementAt(i).length;
+        totalOffset += 20.0; // Height of separator
+        totalOffset += nbrItems * 50.0; // chat item height
+      }
+      totalOffset += currentIndex * 100.0;
+        anotherScrollController.animateTo(
+          totalOffset,
+          duration: const Duration(seconds: 1),
+          curve: Curves.easeInOut,
+        );
     }
   }
 
@@ -247,15 +267,16 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   @override
   void initState() {
-    if(CheckCubit.get(context).hasInternet) {
+    if (CheckCubit.get(context).hasInternet) {
       AppCubit.get(context).getProfile();
     }
-    animationController = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    animationController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 1));
     msgController.addListener(() {
       setState(() {});
     });
     focusNode.addListener(() {
-      if(focusNode.hasPrimaryFocus) {
+      if (focusNode.hasPrimaryFocus) {
         setState(() {
           isHasFocus = true;
         });
@@ -271,16 +292,16 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       setState(() {});
     });
 
-    if(!ThemeCubit.get(context).isDarkTheme) {
+    if (!ThemeCubit.get(context).isDarkTheme) {
       animationController.animateTo(0.65);
     }
 
-    if(isIOS) {
+    if (isIOS) {
       tts();
     }
+
     super.initState();
   }
-
 
   @override
   void dispose() {
@@ -288,6 +309,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     speechToText.stop();
     flutterTts.stop();
     scrollController.dispose();
+    anotherScrollController.dispose();
     msgController.dispose();
     nameController.dispose();
     focusNode.dispose();
@@ -295,972 +317,1212 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     final DateTime timeBackPressed = DateTime.now();
-    return Builder(
-      builder: (context) {
-        final ThemeData theme = Theme.of(context);
-        final bool isDark = theme.brightness == Brightness.dark;
+    return Builder(builder: (context) {
+      final ThemeData theme = Theme.of(context);
+      final bool isDark = theme.brightness == Brightness.dark;
 
-        if(CheckCubit.get(context).hasInternet) {
-          AppCubit.get(context).getChats();
-        }
+      if (CheckCubit.get(context).hasInternet) {
+        AppCubit.get(context).getChats();
+      }
 
-        return BlocConsumer<CheckCubit, CheckStates>(
-          listener: (context, state) {},
-          builder: (context, state) {
+      return BlocConsumer<CheckCubit, CheckStates>(
+        listener: (context, state) {},
+        builder: (context, state) {
+          var checkCubit = CheckCubit.get(context);
 
-            var checkCubit = CheckCubit.get(context);
-
-            return BlocConsumer<ThemeCubit, ThemeStates>(
-              listener: (context, state) {
-
-                if(state is SuccessCheckState) {
-                  if(!CheckCubit.get(context).hasInternet) {
-                    resetSettings();
-                  }
+          return BlocConsumer<ThemeCubit, ThemeStates>(
+            listener: (context, state) {
+              if (state is SuccessCheckState) {
+                if (!CheckCubit.get(context).hasInternet) {
+                  resetSettings();
                 }
+              }
+            },
+            builder: (context, state) {
+              var themeCubit = ThemeCubit.get(context);
 
-              },
-              builder: (context, state) {
+              return BlocConsumer<AppCubit, AppStates>(
+                listener: (context, state) {
+                  var cubit = AppCubit.get(context);
 
-                var themeCubit = ThemeCubit.get(context);
-
-                return BlocConsumer<AppCubit, AppStates>(
-                  listener: (context, state) {
-
-                    var cubit = AppCubit.get(context);
-
-                    if(state is SuccessGetMessagesAppState) {
+                  if (state is SuccessGetMessagesAppState) {
+                    Future.delayed(const Duration(milliseconds: 300)).then((value) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         scrollToBottom();
                       });
-                    }
+                    });
+                  }
 
-                    if(state is SuccessAddAiMessageAppState) {
-                      setState(() {
-                        isLoading = false;
-                        isVisible = false;
-                        isVocalVisible = true;
-                        if(isMicActive) {
-                          isMicLoading = false;
-                          textInput = '';
-                        }
-                      });
-                      if(isCanSpeak) {
-                         aiSpeak(cubit.messages[cubit.messages.length - 1]['message'], local);
+                  if (state is SuccessAddAiMessageAppState) {
+                    setState(() {
+                      isLoading = false;
+                      isVisible = false;
+                      isVocalVisible = true;
+                      if (isMicActive) {
+                        isMicLoading = false;
+                        textInput = '';
                       }
+                    });
+                    if (isCanSpeak) {
+                      aiSpeak(cubit.messages[cubit.messages.length - 1]['message'],
+                          local);
                     }
+                  }
 
-                    if(state is ErrorSendMessageAppState ||
-                        state is ErrorPostMessageAppState ||
-                        state is ErrorUploadAndGetImageUrlAppState ||
-                        state is ErrorGetImageDownloadUrlAppState ||
-                        state is ErrorGetImageUrlEncodedAppState) {
+                  if (state is ErrorSendMessageAppState ||
+                      state is ErrorPostMessageAppState ||
+                      state is ErrorUploadAndGetImageUrlAppState ||
+                      state is ErrorGetImageDownloadUrlAppState ||
+                      state is ErrorGetImageUrlEncodedAppState) {
+                    showFlutterToast(
+                      message: 'Error, may be on server try again later',
+                      state: ToastStates.error,
+                      context: context,
+                      duration: 4,
+                    );
 
-                      showFlutterToast(
-                          message: 'Error, may be on server try again later',
-                          state: ToastStates.error,
-                          context: context,
-                          duration: 4,
-                      );
-
-                      if(checkCubit.hasInternet) {
-                          cubit.removeMessage(
-                            idChat: cubit.groupedIdChats.values.
-                            elementAt(cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0],
-                            idMessage: cubit.idMessages[cubit.idMessages.length - 1]);
-                          Future.delayed(const Duration(milliseconds: 600)).then((value) {
-                            if(cubit.messages.isEmpty) {
-                              setState(() {
-                                isChatEmpty = true;
-                              });
-                              cubit.clearIndexing();
-                              cubit.removeChat(idChat: cubit.groupedIdChats.values.
-                              elementAt(0)[0]);
-                            }
+                    if (checkCubit.hasInternet) {
+                      cubit.removeMessage(
+                          idChat: cubit.groupedIdChats.values.elementAt(
+                              cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0],
+                          idMessage:
+                              cubit.idMessages[cubit.idMessages.length - 1]);
+                      Future.delayed(const Duration(milliseconds: 600))
+                          .then((value) {
+                        if (cubit.messages.isEmpty) {
+                          setState(() {
+                            isChatEmpty = true;
                           });
-                      }
-
-                      setState(() {
-                        isLoading = false;
-                        isVisible = false;
-                        isVocalVisible = true;
-                        if(isMicActive) {
-                          isMicLoading = false;
-                          textInput = '';
+                          cubit.clearIndexing();
+                          cubit.removeChat(
+                              idChat: cubit.groupedIdChats.values.elementAt(0)[0]);
                         }
                       });
                     }
 
-                    if(state is SuccessGetImageAppState || state is ErrorGetImageAppState) {
-                      Navigator.pop(context);
+                    setState(() {
+                      isLoading = false;
+                      isVisible = false;
+                      isVocalVisible = true;
+                      if (isMicActive) {
+                        isMicLoading = false;
+                        textInput = '';
+                      }
+                    });
+                  }
+
+                  if (state is SuccessGetImageAppState ||
+                      state is ErrorGetImageAppState) {
+                    if(getSizeImage(cubit) > 5242880) {
+                      cubit.clearImage();
+                      Future.delayed(const Duration(milliseconds: 300)).then((value) {
+                        showFlutterToast(
+                            message: 'Image is bigger than 5MB',
+                            state: ToastStates.error,
+                            position: (isHasFocus) ?
+                            StyledToastPosition.center :
+                            StyledToastPosition.bottom,
+                            context: context);
+                      });
                     }
+                    Navigator.pop(context);
+                  }
 
+                  if (state is SuccessRenameChatAppState) {
+                    showFlutterToast(
+                        message: 'Done with success',
+                        state: ToastStates.success,
+                        context: context);
+                  }
 
-                    if(state is SuccessRenameChatAppState) {
+                  if (state is SuccessRemoveChatAppState) {
+                    if (!isChatEmpty) {
                       showFlutterToast(
                           message: 'Done with success',
                           state: ToastStates.success,
                           context: context);
-                    }
-
-                    if(state is SuccessRemoveChatAppState) {
-                      if(!isChatEmpty) {
-                        showFlutterToast(
-                            message: 'Done with success',
-                            state: ToastStates.success,
-                            context: context);
-                        if(cubit.messages.isEmpty && (cubit.currentIndex != null)) {
-                          int index = cubit.currentIndex!;
-                          if(cubit.groupedIdChats.values.elementAt(cubit.globalIndex!).length >= index+1) {
-                            cubit.getMessages(idChat: cubit.groupedIdChats.values
-                                .elementAt(cubit.globalIndex!)[cubit.currentIndex!]);
-                          }
-                        }
-                        Navigator.pop(context);
-                        Navigator.pop(context);
-                      }
-                    }
-
-                    if(state is ErrorRenameChatAppState) {
-                      showFlutterToast(
-                          message: '${state.error}',
-                          state: ToastStates.success,
-                          context: context);
-                    }
-
-                    if(state is ErrorRemoveChatAppState) {
-                      showFlutterToast(
-                          message: '${state.error}',
-                          state: ToastStates.success,
-                          context: context);
+                      // if (cubit.messages.isEmpty &&
+                      //     (cubit.currentIndex != null)) {
+                      //   int index = cubit.currentIndex!;
+                      //   if (cubit.groupedIdChats.values
+                      //           .elementAt(cubit.globalIndex!)
+                      //           .length >= index + 1) {
+                      //     cubit.getMessages(
+                      //         idChat: cubit.groupedIdChats.values.elementAt(
+                      //             cubit.globalIndex!)[cubit.currentIndex!]);
+                      //   }
+                      // }
+                      AppCubit.get(context).clearIndexing();
+                      Navigator.pop(context);
                       Navigator.pop(context);
                     }
+                  }
 
+                  if (state is ErrorRenameChatAppState) {
+                    showFlutterToast(
+                        message: '${state.error}',
+                        state: ToastStates.success,
+                        context: context);
+                  }
 
-                    if(state is SuccessSignOutAppState) {
-                      Future.delayed(const Duration(milliseconds: 1200)).then((value) {
-                        CacheHelper.removeData(key: 'uId').then((value) {
-                          if(value == true) {
-                            Navigator.pop(context);
-                            navigateAndNotReturn(context: context, screen: const AuthOptionsScreen());
-                            Future.delayed(const Duration(milliseconds: 500)).then((value) {
-                              cubit.clearMessages();
-                              cubit.clearChats();
-                              cubit.clearIndexing();
-                            });
-                          }
-                        });
+                  if (state is ErrorRemoveChatAppState) {
+                    showFlutterToast(
+                        message: '${state.error}',
+                        state: ToastStates.success,
+                        context: context);
+                    Navigator.pop(context);
+                  }
+
+                  if (state is SuccessSignOutAppState) {
+                    Future.delayed(const Duration(milliseconds: 1200))
+                        .then((value) {
+                      CacheHelper.removeData(key: 'uId').then((value) {
+                        if (value == true) {
+                          Navigator.pop(context);
+                          navigateAndNotReturn(
+                              context: context,
+                              screen: const AuthOptionsScreen());
+                          Future.delayed(const Duration(milliseconds: 500))
+                              .then((value) {
+                            cubit.clearMessages();
+                            cubit.clearChats();
+                            cubit.clearIndexing();
+                          });
+                        }
                       });
-                    }
+                    });
+                  }
 
-                    if(state is ErrorSignOutAppState) {
-                      showFlutterToast(
-                          message: '${state.error}',
-                          state: ToastStates.error,
-                          context: context);
-                      Navigator.pop(context);
-                    }
+                  if (state is ErrorSignOutAppState) {
+                    showFlutterToast(
+                        message: '${state.error}',
+                        state: ToastStates.error,
+                        context: context);
+                    Navigator.pop(context);
+                  }
+                },
+                builder: (context, state) {
+                  var cubit = AppCubit.get(context);
 
-                  },
-                  builder: (context, state) {
-
-                    var cubit = AppCubit.get(context);
-
-                    return GestureDetector(
-                      onHorizontalDragEnd: (details) {
-                        if (details.primaryVelocity! > 0) {
-                          scaffoldKey.currentState?.openDrawer();
-                        }
+                  return GestureDetector(
+                    onHorizontalDragEnd: (details) {
+                      if (details.primaryVelocity! > 0) {
+                        scaffoldKey.currentState?.openDrawer();
+                      }
+                    },
+                    child: PopScope(
+                      canPop: canExit,
+                      onPopInvoked: (v) {
+                        exit(timeBackPressed);
                       },
-                      child: PopScope(
-                        canPop: canExit,
-                        onPopInvoked: (v) {
-                          exit(timeBackPressed);
-                        },
-                        child: Scaffold(
-                          key: scaffoldKey,
-                          drawer: drawer(isDark, cubit.userModel, state),
-                          appBar: AppBar(
-                            centerTitle: true,
-                            elevation: 0.0,
-                            scrolledUnderElevation: 0.0,
-                            clipBehavior: Clip.antiAlias,
-                            title: FadeIn(
-                              duration: const Duration(milliseconds: 400),
-                              child: Text(
-                                'ChatAI',
-                                style: TextStyle(
-                                  fontSize: 19.0,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.6,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                            actions: [
-                              if(cubit.messages.isNotEmpty)
+                      child: Scaffold(
+                        key: scaffoldKey,
+                        drawer: drawer(isDark, cubit.userModel, state),
+                        appBar: AppBar(
+                          centerTitle: true,
+                          elevation: 0.0,
+                          scrolledUnderElevation: 0.0,
+                          clipBehavior: Clip.antiAlias,
+                          title: FadeIn(
+                            duration: const Duration(milliseconds: 400),
+                            child: Text.rich(
+                               TextSpan(
+                               style: const TextStyle(
+                                   fontSize: 19,
+                                   letterSpacing: 0.6,
+                                   fontWeight: FontWeight.bold,
+                               ),
+                               children: 'ChatAI'.split('').map((char) => TextSpan(
+                               text: char,
+                               style: TextStyle(
+                               foreground: Paint()
+                               ..shader = LinearGradient(
+                               colors: [HexColor('08B6FF'), HexColor('505EFF')])
+                                   .createShader(const Rect.fromLTWH(25, 0, 25, 30)),),
+                               )).toList(),),
+                          )),
+                          actions: [
+                            if (cubit.messages.isNotEmpty && !isLoading && !isMicLoading)
                               FadeIn(
-                                duration: const Duration(milliseconds: 300),
+                                duration: const Duration(milliseconds: 400),
                                 child: IconButton(
-                                    tooltip: 'New Chat',
-                                    enableFeedback: true,
-                                    onPressed: () {
-                                      if(CheckCubit.get(context).hasInternet) {
-                                        AppCubit.get(context).clearIndexing();
-                                        AppCubit.get(context).clearMessages();
-                                      } else {
-                                        showFlutterToast(
-                                            message: 'No Internet Connection',
-                                            state: ToastStates.error,
-                                            context: context);
-                                      }
-
-                                    },
-                                    icon: Icon(
-                                      EvaIcons.plusSquareOutline,
-                                      size: 30.0,
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
+                                  tooltip: 'New Chat',
+                                  enableFeedback: true,
+                                  onPressed: () {
+                                    if (CheckCubit.get(context).hasInternet) {
+                                      AppCubit.get(context).clearIndexing();
+                                      AppCubit.get(context).clearMessages();
+                                    } else {
+                                      showFlutterToast(
+                                          message: 'No Internet Connection',
+                                          state: ToastStates.error,
+                                          context: context);
+                                    }
+                                  },
+                                  icon: Icon(
+                                    EvaIcons.plusSquareOutline,
+                                    size: 30.0,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(
-                                width: 2.0,
-                              ),
-                            ],
-                            systemOverlayStyle: SystemUiOverlayStyle(
-                              statusBarColor: Theme.of(context).scaffoldBackgroundColor,
-                              statusBarIconBrightness: themeCubit.isDarkTheme ? Brightness.light : Brightness.dark,
-                              systemNavigationBarColor: themeCubit.isDarkTheme
-                                  ? firstColor
-                                  : secondColor,
+                            const SizedBox(
+                              width: 2.0,
                             ),
+                          ],
+                          systemOverlayStyle: SystemUiOverlayStyle(
+                            statusBarColor:
+                                Theme.of(context).scaffoldBackgroundColor,
+                            statusBarIconBrightness: themeCubit.isDarkTheme
+                                ? Brightness.light
+                                : Brightness.dark,
+                            systemNavigationBarColor: themeCubit.isDarkTheme
+                                ? firstColor
+                                : secondColor,
                           ),
-                          body: Form(
-                            key: formKey,
-                            child: Column(
-                              children: [
-                                Expanded(
-                                  child: ConditionalBuilder(
-                                    condition: cubit.messages.isNotEmpty,
-                                    builder: (context) => Padding(
-                                      padding: const EdgeInsets.fromLTRB(14.0, 8.0, 14.0, 0.0),
-                                      child: ListView.separated(
-                                        controller: scrollController,
-                                        itemBuilder: (context, index) => buildItemMessage(cubit.messages[index], index),
-                                        separatorBuilder: (context, index) => const SizedBox(
-                                          height: 20.0,
-                                        ),
-                                        itemCount: cubit.messages.length,
+                        ),
+                        body: Form(
+                          key: formKey,
+                          child: Column(
+                            children: [
+                              Expanded(
+                                child: ConditionalBuilder(
+                                  condition: cubit.messages.isNotEmpty,
+                                  builder: (context) => Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                        14.0, 8.0, 14.0, 0.0),
+                                    child: ListView.separated(
+                                      controller: scrollController,
+                                      itemBuilder: (context, index) =>
+                                          buildItemMessage(
+                                              cubit.messages[index], index),
+                                      separatorBuilder: (context, index) =>
+                                          const SizedBox(
+                                        height: 20.0,
                                       ),
+                                      itemCount: cubit.messages.length,
                                     ),
-                                    fallback: (context) => (checkCubit.hasInternet) ?
-                                    Padding(
-                                      padding: const EdgeInsets.all(20.0),
-                                      child: Column(
-                                        children: [
-                                          if((!isHasFocus && cubit.image == null) &&
-                                              (!isLoading && !isMicLoading)) ...[
-                                            ZoomIn(
-                                              duration: const Duration(milliseconds: 400),
-                                              child: Align(
-                                                alignment: Alignment.center,
-                                                child: Image.asset(
-                                                  'assets/images/logo.png',
-                                                  width: 90.0,
-                                                  height: 90.0,
+                                  ),
+                                  fallback: (context) => (checkCubit
+                                          .hasInternet)
+                                      ? Padding(
+                                          padding: const EdgeInsets.all(20.0),
+                                          child: Column(
+                                            children: [
+                                              if ((!isHasFocus &&
+                                                      cubit.image == null) &&
+                                                  (!isLoading &&
+                                                      !isMicLoading)) ...[
+                                                ZoomIn(
+                                                  duration: const Duration(
+                                                      milliseconds: 400),
+                                                  child: Align(
+                                                    alignment: Alignment.center,
+                                                    child: Image.asset(
+                                                      'assets/images/logo.png',
+                                                      width: 90.0,
+                                                      height: 90.0,
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
-                                            const SizedBox(
-                                              height: 35.0,
-                                            ),
-                                            FadeInRight(
-                                              duration: const Duration(milliseconds: 400),
-                                              child: Text(
-                                                'Hello, ${(cubit.userModel != null) ?
-                                                (cubit.userModel!.fullName!.contains(' ') ?
-                                                cubit.userModel?.fullName?.split(' ')[0] : cubit.userModel?.fullName)
-                                                    : '...'}',
-                                                style: const TextStyle(
-                                                  fontSize: 24.0,
-                                                  fontWeight: FontWeight.bold,
+                                                const SizedBox(
+                                                  height: 35.0,
                                                 ),
-                                              ),
-                                            ),
-                                            const SizedBox(
-                                              height: 12.0,
-                                            ),
-                                            FadeInRight(
-                                              duration: const Duration(milliseconds: 400),
-                                              child: const Text(
-                                                'Tell me what\'s on your mind.',
-                                                style: TextStyle(
-                                                  fontSize: 19.0,
+                                                FadeInRight(
+                                                  duration: const Duration(
+                                                      milliseconds: 400),
+                                                  child: Text(
+                                                    'Hello, ${(cubit.userModel != null) ?
+                                                    (cubit.userModel!.fullName!.contains(' ') ?
+                                                    cubit.userModel?.fullName?.split(' ')[0] :
+                                                    cubit.userModel?.fullName) : '...'}',
+                                                    style: const TextStyle(
+                                                      fontSize: 24.0,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
-                                          ]
-                                          else if(cubit.messages.isEmpty) ...[
-                                            FadeIn(
-                                              duration: const Duration(milliseconds: 300),
-                                              child: const Center(
-                                                child: Text(
-                                                  'Waiting for your message ...',
-                                                  textAlign: TextAlign.center,
+                                                const SizedBox(
+                                                  height: 12.0,
+                                                ),
+                                                FadeInRight(
+                                                  duration: const Duration(
+                                                      milliseconds: 400),
+                                                  child: const Text(
+                                                    'Tell me what\'s on your mind.',
+                                                    style: TextStyle(
+                                                      fontSize: 19.0,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ] else if (cubit
+                                                  .messages.isEmpty) ...[
+                                                FadeIn(
+                                                  duration: const Duration(
+                                                      milliseconds: 300),
+                                                  child: Center(
+                                                    child: Text(
+                                                      cubit.statusText,
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: const TextStyle(
+                                                        fontSize: 18.0,
+                                                        letterSpacing: 0.6,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        )
+                                      : FadeIn(
+                                          duration:
+                                              const Duration(milliseconds: 400),
+                                          child: const Center(
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  'No Internet',
                                                   style: TextStyle(
-                                                    fontSize: 18.0,
-                                                    letterSpacing: 0.6,
+                                                    fontSize: 17.0,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
-                                              ),
+                                                SizedBox(
+                                                  width: 4.0,
+                                                ),
+                                                Icon(
+                                                  EvaIcons.wifiOffOutline,
+                                                ),
+                                              ],
                                             ),
-                                          ],
-                                        ],
-                                      ),
-                                    ) :
-                                    FadeIn(
-                                      duration: const Duration(milliseconds: 400),
-                                      child: const Center(
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              'No Internet',
-                                              style: TextStyle(
-                                                fontSize: 17.0,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              width: 4.0,
-                                            ),
-                                            Icon(
-                                              EvaIcons.wifiOffOutline,
-                                            ),
-                                          ],
+                                          ),
                                         ),
-                                      ),
-                                    ),
+                                ),
+                              ),
+                              const SizedBox(
+                                height: 8.0,
+                              ),
+                              Material(
+                                elevation: 30.0,
+                                clipBehavior: Clip.antiAlias,
+                                color: themeCubit.isDarkTheme
+                                    ? firstColor
+                                    : secondColor,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12.0,
+                                    vertical: 20.0,
                                   ),
-                                ),
-                                const SizedBox(
-                                  height: 8.0,
-                                ),
-                                Material(
-                                  elevation: 30.0,
-                                  clipBehavior: Clip.antiAlias,
-                                  color: themeCubit.isDarkTheme
-                                      ? firstColor
-                                      : secondColor,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12.0,
-                                      vertical: 20.0,
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        if(cubit.image != null) ...[
-                                          FadeInDown(
-                                            duration: const Duration(milliseconds: 300),
-                                            child: buildImageUpload(cubit, themeCubit),
-                                          ),
-                                          const SizedBox(
-                                            height: 10.0,
-                                          ),
-                                        ],
-                                        Row(
-                                          children: [
-                                            if(cubit.image == null && !isLoading
-                                                && !isMicLoading && !isStartListening && checkCubit.hasInternet)
+                                  child: Column(
+                                    children: [
+                                      if (cubit.image != null && (getSizeImage(cubit) <= 5242880)) ...[
+                                        FadeInDown(
+                                          duration:
+                                              const Duration(milliseconds: 300),
+                                          child: buildImageUpload(
+                                              cubit, themeCubit),
+                                        ),
+                                        const SizedBox(
+                                          height: 10.0,
+                                        ),
+                                      ],
+                                      Row(
+                                        children: [
+                                          if (cubit.image == null &&
+                                              !isLoading &&
+                                              !isMicLoading &&
+                                              !isStartListening &&
+                                              checkCubit.hasInternet)
                                             FadeInLeft(
-                                              duration: const Duration(milliseconds: 100),
+                                              duration: const Duration(
+                                                  milliseconds: 100),
                                               child: defaultIconButton(
                                                 toolTip: 'Add image',
                                                 elevation: 2.0,
                                                 radius1: 50.0,
                                                 radius2: 20.0,
                                                 function: () async {
-                                                   await showOptionsForUploadingImage();
+                                                  await showOptionsForUploadingImage();
                                                 },
                                                 padding: 8.0,
-                                                icon: Icons.add_photo_alternate_outlined,
-                                                color: themeCubit.isDarkTheme ?
-                                                Colors.grey.shade700.withOpacity(.7) : Colors.white,
-                                                colorIcon: themeCubit.isDarkTheme ?
-                                                Colors.white : Colors.black,
+                                                icon: Icons
+                                                    .add_photo_alternate_outlined,
+                                                color: themeCubit.isDarkTheme
+                                                    ? Colors.grey.shade700
+                                                        .withOpacity(.7)
+                                                    : Colors.white,
+                                                colorIcon:
+                                                    themeCubit.isDarkTheme
+                                                        ? Colors.white
+                                                        : Colors.black,
                                               ),
                                             ),
-                                            const SizedBox(
-                                              width: 10.0,
-                                            ),
-                                            Expanded(
-                                              child: (!isMicActive) ?
-                                              TextFormField(
-                                                controller: msgController,
-                                                keyboardType: TextInputType.multiline,
-                                                maxLines: null,
-                                                textCapitalization: TextCapitalization.sentences,
-                                                focusNode: focusNode,
-                                                style: const TextStyle(
-                                                  letterSpacing: 0.6,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                                decoration: InputDecoration(
-                                                  hintText: 'Type ...',
-                                                  border: OutlineInputBorder(
-                                                    borderRadius: BorderRadius.circular(14.0),
-                                                    borderSide: const BorderSide(
-                                                      width: 2.0,
+                                          const SizedBox(
+                                            width: 10.0,
+                                          ),
+                                          Expanded(
+                                            child: (!isMicActive)
+                                                ? TextFormField(
+                                                    controller: msgController,
+                                                    keyboardType:
+                                                        TextInputType.multiline,
+                                                    maxLines: null,
+                                                    textCapitalization:
+                                                        TextCapitalization
+                                                            .sentences,
+                                                    focusNode: focusNode,
+                                                    style: const TextStyle(
+                                                      letterSpacing: 0.6,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                     ),
-                                                  ),
-                                                  constraints: BoxConstraints(
-                                                    maxHeight: MediaQuery.of(context).size.height / 4.5,
-                                                  ),
-                                                ),
-                                                onChanged: (value) {
-                                                  if(checkCubit.hasInternet) {
-                                                    if(value.isNotEmpty && value.trim().isNotEmpty) {
-                                                      if(!formKey.currentState!.validate()) {
-                                                        setState(() {
-                                                          isVisible = false;
-                                                          isVocalVisible = false;
-                                                        });
-                                                      } else {
-                                                        setState(() {
-                                                          isVisible = true;
-                                                          isVocalVisible = false;
-                                                        });
-                                                      }
-                                                    } else {
-                                                      setState(() {
-                                                        isVisible = false;
-                                                        isVocalVisible = true;
-                                                      });
-                                                    }
-                                                  }
-                                                },
-                                                validator: (value) {
-                                                  if(value != null && value.length > 10000) {
-                                                    return 'Text is too large';
-                                                  }
-                                                  return null;
-                                                },
-                                              ) :
-                                              Center(
-                                                child: ConditionalBuilder(
-                                                  condition: !isMicLoading,
-                                                  builder: (context) =>
-                                                  FadeIn(
-                                                    duration: const Duration(milliseconds: 200),
-                                                    child: GestureDetector(
-                                                      onTap: () async {
-                                                        if(checkCubit.hasInternet) {
-                                                          await vocalConfig(local);
+                                                    decoration: InputDecoration(
+                                                      hintText: 'Type ...',
+                                                      border:
+                                                          OutlineInputBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(14.0),
+                                                        borderSide:
+                                                            const BorderSide(
+                                                          width: 2.0,
+                                                        ),
+                                                      ),
+                                                      constraints:
+                                                          BoxConstraints(
+                                                        maxHeight: MediaQuery.of(context).size.height / 4.5,
+                                                      ),
+                                                    ),
+                                                    onChanged: (value) {
+                                                      if (checkCubit
+                                                          .hasInternet) {
+                                                        if (value.isNotEmpty &&
+                                                            value.trim().isNotEmpty) {
+                                                          if (!formKey.currentState!.validate()) {
+                                                            setState(() {
+                                                              isVisible = false;
+                                                              isVocalVisible = false;
+                                                            });
+                                                          } else {
+                                                            setState(() {
+                                                              isVisible = true;
+                                                              isVocalVisible = false;
+                                                            });
+                                                          }
                                                         } else {
-                                                         showFlutterToast(
-                                                             message: 'No Internet Connection',
-                                                             state: ToastStates.error,
-                                                             context: context);
+                                                          setState(() {
+                                                            isVisible = false;
+                                                            isVocalVisible = true;
+                                                          });
                                                         }
-                                                      },
-                                                      child: AvatarGlow(
-                                                        startDelay: const Duration(milliseconds: 650),
-                                                        duration: const Duration(milliseconds: 1300),
-                                                        glowRadiusFactor: 2.5,
-                                                        glowColor: Theme.of(context).colorScheme.primary.withOpacity(.2),
-                                                        glowShape: BoxShape.circle,
-                                                        animate: isStartListening,
-                                                        curve: Curves.fastOutSlowIn,
-                                                        glowCount: 2,
-                                                        repeat: true,
-                                                        child: CircleAvatar(
-                                                          radius: 40.0,
-                                                          backgroundColor: (!isStartListening) ? (themeCubit.isDarkTheme ?
-                                                          Colors.grey.shade300 : Colors.black54.withOpacity(.1)) :
-                                                          Theme.of(context).colorScheme.primary,
-                                                          child: CircleAvatar(
-                                                            radius: 36.0,
-                                                            child: Icon(
-                                                              (!isStartListening) ? EvaIcons.micOffOutline : EvaIcons.micOutline,
-                                                              size: (!isStartListening) ? 28.0 : 30.0,
-                                                              color: Colors.white,
+                                                      }
+                                                    },
+                                                    validator: (value) {
+                                                      if (value != null &&
+                                                          value.length > 10000) {
+                                                        return 'Text is too large';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  )
+                                                : Center(
+                                                    child: ConditionalBuilder(
+                                                      condition: !isMicLoading,
+                                                      builder: (context) =>
+                                                          FadeIn(
+                                                        duration:
+                                                            const Duration(
+                                                                milliseconds:
+                                                                    200),
+                                                        child: GestureDetector(
+                                                          onTap: () async {
+                                                            if (checkCubit
+                                                                .hasInternet) {
+                                                              await vocalConfig(
+                                                                  local);
+                                                            } else {
+                                                              showFlutterToast(
+                                                                  message:
+                                                                      'No Internet Connection',
+                                                                  state:
+                                                                      ToastStates
+                                                                          .error,
+                                                                  context:
+                                                                      context);
+                                                            }
+                                                          },
+                                                          child: AvatarGlow(
+                                                            startDelay:
+                                                                const Duration(
+                                                                    milliseconds:
+                                                                        650),
+                                                            duration:
+                                                                const Duration(
+                                                                    milliseconds:
+                                                                        1300),
+                                                            glowRadiusFactor:
+                                                                2.5,
+                                                            glowColor: Theme.of(
+                                                                    context)
+                                                                .colorScheme
+                                                                .primary
+                                                                .withOpacity(
+                                                                    .2),
+                                                            glowShape:
+                                                                BoxShape.circle,
+                                                            animate:
+                                                                isStartListening,
+                                                            curve: Curves
+                                                                .fastOutSlowIn,
+                                                            glowCount: 2,
+                                                            repeat: true,
+                                                            child: CircleAvatar(
+                                                              radius: 40.0,
+                                                              backgroundColor: (!isStartListening)
+                                                                  ? (themeCubit
+                                                                          .isDarkTheme
+                                                                      ? Colors
+                                                                          .grey
+                                                                          .shade300
+                                                                      : Colors
+                                                                          .black54
+                                                                          .withOpacity(
+                                                                              .1))
+                                                                  : Theme.of(
+                                                                          context)
+                                                                      .colorScheme
+                                                                      .primary,
+                                                              child:
+                                                                  CircleAvatar(
+                                                                radius: 36.0,
+                                                                child: Icon(
+                                                                  (!isStartListening)
+                                                                      ? EvaIcons
+                                                                          .micOffOutline
+                                                                      : EvaIcons
+                                                                          .micOutline,
+                                                                  size:
+                                                                      (!isStartListening)
+                                                                          ? 28.0
+                                                                          : 30.0,
+                                                                  color: Colors
+                                                                      .white,
+                                                                ),
+                                                              ),
                                                             ),
                                                           ),
                                                         ),
                                                       ),
+                                                      fallback: (context) => FadeIn(
+                                                          duration:
+                                                              const Duration(
+                                                                  milliseconds:
+                                                                      200),
+                                                          child:
+                                                              LoadingIndicator(
+                                                                  os: getOs())),
                                                     ),
                                                   ),
-                                                  fallback: (context) => FadeIn(
-                                                      duration: const Duration(milliseconds: 200),
-                                                      child: LoadingIndicator(os: getOs())),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(
-                                              width: 10.0,
-                                            ),
-                                            ConditionalBuilder(
-                                              condition: !isLoading,
-                                              builder: (context) => Visibility(
-                                                visible: isVisible,
-                                                child: FadeIn(
-                                                  duration: const Duration(milliseconds: 100),
-                                                  child: Tooltip(
-                                                    message: 'Send',
-                                                    enableFeedback: true,
-                                                    child: InkWell(
-                                                      borderRadius: BorderRadius.circular(20.0),
-                                                      onTap: () async {
-                                                        focusNode.unfocus();
-                                                        if(checkCubit.hasInternet) {
-                                                          String message = msgController.text;
-                                                          msgController.clear();
-                                                          setState(() {
-                                                            isLoading = true;
+                                          ),
+                                          const SizedBox(
+                                            width: 10.0,
+                                          ),
+                                          ConditionalBuilder(
+                                            condition: !isLoading,
+                                            builder: (context) => Visibility(
+                                              visible: isVisible,
+                                              child: FadeIn(
+                                                duration: const Duration(
+                                                    milliseconds: 100),
+                                                child: Tooltip(
+                                                  message: 'Send',
+                                                  enableFeedback: true,
+                                                  child: InkWell(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20.0),
+                                                    onTap: () async {
+                                                      focusNode.unfocus();
+                                                      if (checkCubit
+                                                          .hasInternet) {
+                                                        String message =
+                                                            msgController.text;
+                                                        msgController.clear();
+                                                        setState(() {
+                                                          isLoading = true;
+                                                        });
+                                                        if (cubit.image !=
+                                                            null) {
+                                                          await Future.delayed(
+                                                                  const Duration(
+                                                                      milliseconds:
+                                                                          200))
+                                                              .then((value) {
+                                                            cubit.clearImage();
                                                           });
-                                                          if(cubit.image != null) {
-                                                            await Future.delayed(const Duration(milliseconds: 200)).then((value) {
-                                                              cubit.clearImage();
-                                                            });
-                                                          }
-                                                          await cubit.sendMessage(
-                                                            message: message,
-                                                            dateTime: DateTime.now().toString(),
-                                                            timesTamp: Timestamp.now(),
-                                                            idChat: (cubit.chats.isNotEmpty) ?
-                                                            cubit.groupedIdChats.values.
-                                                            elementAt(cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0] :
-                                                            null,
-                                                          );
-                                                        } else {
-                                                          showFlutterToast(
-                                                              message: 'No Internet Connection',
-                                                              state: ToastStates.error,
-                                                              context: context);
                                                         }
-
-                                                      },
-                                                      child: Padding(
-                                                        padding: const EdgeInsets.all(8.0),
-                                                        child: Icon(
-                                                          Icons.send_rounded,
-                                                          color: Theme.of(context).colorScheme.primary,
-                                                        ),
+                                                        await cubit.sendMessage(
+                                                          message: message,
+                                                          dateTime: DateTime.now().toString(),
+                                                          timesTamp: Timestamp.now(),
+                                                          idChat: (cubit.chats.isNotEmpty)
+                                                              ? cubit.groupedIdChats.values.elementAt(
+                                                                      cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0]
+                                                              : null,
+                                                        );
+                                                      } else {
+                                                        showFlutterToast(
+                                                            message:
+                                                                'No Internet Connection',
+                                                            state: ToastStates
+                                                                .error,
+                                                            context: context);
+                                                      }
+                                                    },
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              8.0),
+                                                      child: Icon(
+                                                        Icons.send_rounded,
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .primary,
                                                       ),
                                                     ),
                                                   ),
                                                 ),
                                               ),
-                                              fallback: (context) => FadeInRight(
-                                                duration: const Duration(milliseconds: 100),
-                                                child: Padding(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 4.0,
-                                                  ),
-                                                  child: LoadingIndicatorKit(os: getOs()),
+                                            ),
+                                            fallback: (context) => FadeInRight(
+                                              duration: const Duration(
+                                                  milliseconds: 100),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 4.0,
+                                                ),
+                                                child: LoadingIndicatorKit(
+                                                    os: getOs()),
+                                              ),
+                                            ),
+                                          ),
+                                          if (!isLoading &&
+                                              !isMicLoading &&
+                                              !isStartListening &&
+                                              checkCubit.hasInternet)
+                                            Visibility(
+                                              visible: isVocalVisible,
+                                              child: FadeInRight(
+                                                duration: const Duration(
+                                                    milliseconds: 100),
+                                                child: defaultIconButton(
+                                                  toolTip: (!isMicActive)
+                                                      ? 'Mic'
+                                                      : 'Close',
+                                                  elevation: 2.0,
+                                                  radius1: 50.0,
+                                                  radius2: 20.0,
+                                                  function: () {
+                                                    if (!isMicActive) {
+                                                      Future.delayed(
+                                                              const Duration(
+                                                                  milliseconds:
+                                                                      300))
+                                                          .then((value) async {
+                                                        await speakConfirmation();
+                                                      });
+                                                    } else {
+                                                      setState(() {
+                                                        isCanSpeak = false;
+                                                        if (isSpeaking) {
+                                                          isSpeaking = false;
+                                                          flutterTts.stop();
+                                                        }
+                                                      });
+                                                    }
+                                                    setState(() {
+                                                      isMicActive =
+                                                          !isMicActive;
+                                                    });
+                                                  },
+                                                  padding: 8.0,
+                                                  icon: (!isMicActive)
+                                                      ? EvaIcons.micOutline
+                                                      : Icons.close_rounded,
+                                                  color: themeCubit.isDarkTheme
+                                                      ? Colors.grey.shade700
+                                                          .withOpacity(.7)
+                                                      : Colors.white,
+                                                  colorIcon:
+                                                      themeCubit.isDarkTheme
+                                                          ? Colors.white
+                                                          : Colors.black,
                                                 ),
                                               ),
                                             ),
-                                            if(!isLoading && !isMicLoading &&
-                                                !isStartListening && checkCubit.hasInternet)
-                                              Visibility(
-                                                visible: isVocalVisible,
-                                                child: FadeInRight(
-                                                  duration: const Duration(milliseconds: 100),
-                                                  child: defaultIconButton(
-                                                      toolTip: (!isMicActive) ? 'Mic' : 'Close',
-                                                      elevation: 2.0,
-                                                      radius1: 50.0,
-                                                      radius2: 20.0,
-                                                      function: () {
-                                                        if(!isMicActive) {
-                                                          Future.delayed(const Duration(milliseconds: 300))
-                                                              .then((value) async {
-                                                            await speakConfirmation();
-                                                          });
-                                                        } else {
-                                                          setState(() {
-                                                            isCanSpeak = false;
-                                                            if(isSpeaking) {
-                                                              isSpeaking = false;
-                                                              flutterTts.stop();
-                                                            }
-                                                          });
-                                                        }
-                                                        setState(() {
-                                                          isMicActive = !isMicActive;
-                                                        });
-                                                      },
-                                                      padding: 8.0,
-                                                      icon: (!isMicActive) ? EvaIcons.micOutline :
-                                                      Icons.close_rounded,
-                                                      color: themeCubit.isDarkTheme ?
-                                                      Colors.grey.shade700.withOpacity(.7) : Colors.white,
-                                                      colorIcon: themeCubit.isDarkTheme ?
-                                                      Colors.white : Colors.black,
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    );
-                  },
-                );
-              },
-            );
-          },
-        );
-      }
-    );
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      );
+    });
   }
 
-  // Upload Images From Device
-  Widget buildImageUpload(cubit, themeCubit) => SizedBox(
-    width: 155.0,
-    height: 125.0,
-    child: Stack(
-      alignment: Alignment.topRight,
-      children: [
-        Align(
-          alignment: Alignment.center,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10.0),
-            child: Image.file(File(cubit.image!.path),
-              width: 100.0,
-              height: 100.0,
-              fit: BoxFit.cover,
-              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                if(frame == null) {
-                  return Container(
-                      width: 100.0,
-                      height: 100.0,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10.0,),
-                        color: Colors.blue.shade800,
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                  );
-                }
-                return FadeIn(
-                  duration: const Duration(milliseconds: 300),
-                  child: child,
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 100.0,
-                  height: 100.0,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10.0,),
-                    color: Colors.blue.shade800,
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Center(
-                    child: Icon(
-                      Icons.error_outline_rounded,
-                      size: 24.0,
-                      color: themeCubit.isDarkTheme ? Colors.white : Colors.black,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        defaultIconButton(
-          toolTip: 'Remove',
-          elevation: 2.0,
-          radius1: 20.0,
-          radius2: 20.0,
-          padding: 3.0,
-          function: () {
-            cubit.clearImage(isClearAll: true);
-          },
-          icon: Icons.close_rounded,
-          color: themeCubit.isDarkTheme ?
-          Colors.grey.shade700.withOpacity(.7) : Colors.white,
-          colorIcon: themeCubit.isDarkTheme ?
-          Colors.white : Colors.black,),
-      ],
-    ),
-  );
 
-  Future<dynamic> showOptionsForUploadingImage() => showModalBottomSheet(
-    showDragHandle: true,
-    clipBehavior: Clip.antiAlias,
-    context: context,
-    builder: (BuildContext context) {
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8.0, 0.0, 8.0, 12.0),
-          child: Wrap(
-            clipBehavior: Clip.antiAlias,
+  int getSizeImage(cubit) {
+    int sizeImage = File(cubit.image.path).lengthSync();
+    return sizeImage;
+  }
+
+
+  // Upload Images From Device
+  Widget buildImageUpload(cubit, themeCubit) => FadeInDown(
+    duration: const Duration(milliseconds: 300),
+    child: SizedBox(
+          width: 155.0,
+          height: 135.0,
+          child: Stack(
+            alignment: Alignment.topRight,
             children: [
-              ListTile(
-                enableFeedback: true,
-                shape: RoundedRectangleBorder(
+              Align(
+                alignment: Alignment.center,
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(10.0),
-                ),
-                onTap: () async {
-                  await AppCubit.get(context).getImage(ImageSource.camera);
-                },
-                leading: Icon(
-                  Icons.camera_alt_rounded,
-                  color: ThemeCubit.get(context).isDarkTheme ? Colors.white : Colors.black,
-                ),
-                title: const Text(
-                  'Camera',
-                  style: TextStyle(
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.bold,
+                  child: Image.file(
+                    File(cubit.image!.path),
+                    width: 100.0,
+                    height: 100.0,
+                    fit: BoxFit.cover,
+                    frameBuilder:
+                        (context, child, frame, wasSynchronouslyLoaded) {
+                      if (frame == null) {
+                        return Container(
+                          width: 100.0,
+                          height: 100.0,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(
+                              10.0,
+                            ),
+                            color: Colors.blue.shade800,
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                        );
+                      }
+                      return child;
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 100.0,
+                        height: 100.0,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(
+                            10.0,
+                          ),
+                          color: Colors.blue.shade800,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Center(
+                          child: Icon(
+                            Icons.error_outline_rounded,
+                            size: 24.0,
+                            color: themeCubit.isDarkTheme
+                                ? Colors.white
+                                : Colors.black,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
-              ListTile(
-                enableFeedback: true,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                ),
-                onTap: () async {
-                  await AppCubit.get(context).getImage(ImageSource.gallery);
+              defaultIconButton(
+                toolTip: 'Remove',
+                elevation: 2.0,
+                radius1: 20.0,
+                radius2: 20.0,
+                padding: 3.0,
+                function: () {
+                  cubit.clearImage(isClearAll: true);
                 },
-                leading: Icon(
-                  Icons.image_rounded,
-                  color: ThemeCubit.get(context).isDarkTheme ? Colors.white : Colors.black,
-                ),
-                title: const Text(
-                  'Gallery',
-                  style: TextStyle(
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                icon: Icons.close_rounded,
+                color: themeCubit.isDarkTheme
+                    ? Colors.grey.shade700.withOpacity(.7)
+                    : Colors.white,
+                colorIcon: themeCubit.isDarkTheme ? Colors.white : Colors.black,
               ),
             ],
           ),
         ),
-      );
-    },
   );
 
+  Future<dynamic> showOptionsForUploadingImage() => showModalBottomSheet(
+        showDragHandle: true,
+        clipBehavior: Clip.antiAlias,
+        context: context,
+        builder: (BuildContext context) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8.0, 0.0, 8.0, 12.0),
+              child: Wrap(
+                clipBehavior: Clip.antiAlias,
+                children: [
+                  ListTile(
+                    enableFeedback: true,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    onTap: () async {
+                      await AppCubit.get(context).getImage(ImageSource.camera);
+                    },
+                    leading: Icon(
+                      Icons.camera_alt_rounded,
+                      color: ThemeCubit.get(context).isDarkTheme
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+                    title: const Text(
+                      'Camera',
+                      style: TextStyle(
+                        fontSize: 16.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    enableFeedback: true,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    onTap: () async {
+                      await AppCubit.get(context).getImage(ImageSource.gallery);
+                    },
+                    leading: Icon(
+                      Icons.image_rounded,
+                      color: ThemeCubit.get(context).isDarkTheme
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+                    title: const Text(
+                      'Gallery',
+                      style: TextStyle(
+                        fontSize: 16.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
 
+  dynamic showShimmerLoading(
+          {required double width,
+          required double height,
+          required double radius}) =>
+      Shimmer.fromColors(
+        baseColor: Colors.blue.shade900.withOpacity(.8),
+        highlightColor: Colors.indigo.shade900,
+        child: Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            color: ThemeCubit.get(context).isDarkTheme ?
+            Colors.indigo.shade900.withOpacity(.9) :
+            Colors.indigo.shade900.withOpacity(.7),
+          ),
+          clipBehavior: Clip.antiAlias,
+        ),
+      );
+
+
+  bool isSearchCalled = false;
 
   // Drawer
-  Widget drawer(isDark, UserModel? model, state) => Drawer(
-    elevation: 10.0,
-    clipBehavior: Clip.antiAlias,
-    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-    child: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: SlideInLeft(
-          duration: const Duration(milliseconds: 300),
-          child: Column(
-            children: [
-              Padding(
+  Widget drawer(isDark, UserModel? model, state) => Builder(
+    builder: (dialogContext) {
+
+      if(AppCubit.get(context).globalIndex != null
+          && AppCubit.get(context).currentIndex != null &&
+          CheckCubit.get(context).hasInternet) {
+
+        Future.delayed(const Duration(milliseconds: 300)).then((value) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            scrollToCurrentIndex(AppCubit.get(context).globalIndex ?? 0,
+                AppCubit.get(context).currentIndex ?? 0);
+          });
+        });
+      }
+
+      return Drawer(
+            elevation: 10.0,
+            clipBehavior: Clip.antiAlias,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            child: SafeArea(
+              child: Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        CircleAvatar(
-                          radius: 36.0,
-                          backgroundColor: ThemeCubit.get(context).isDarkTheme ?
-                          Colors.white : Colors.black,
-                          child: CircleAvatar(
-                            radius: 34.0,
-                            backgroundImage: NetworkImage('${model?.imageProfile}'),
-                          ),
-                        ),
-                        Material(
-                          elevation: 2.0,
-                          borderRadius: BorderRadius.circular(50.0),
-                          clipBehavior: Clip.antiAlias,
-                          color: ThemeCubit.get(context).isDarkTheme ? thirdColor : Colors.white,
-                          child: IconButton(
-                            onPressed: () {
-                              ThemeCubit.get(context).changeTheme(!isDark);
-                              if (!ThemeCubit.get(context).isDarkTheme) {
-                                animationController.reset();
-                                animationController.animateTo(0.65);
-                              } else {
-                                animationController.reverse();
-                              }
-                            },
-                            icon: Lottie.asset(
-                                Icons8.day_night_weather,
-                                width: 30.0,
-                                height: 30.0,
-                                controller: animationController),
-                            tooltip: 'Change Mode',
-                            enableFeedback: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(
-                      height: 14.0,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        left: 2.0,
-                      ),
-                      child: Text(
-                        model?.fullName ?? '...',
-                        maxLines: 1,
-                        style: const TextStyle(
-                          fontSize: 16.0,
-                          overflow: TextOverflow.ellipsis,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 10.0,
-                ),
-                child: Divider(
-                  thickness: 0.6,
-                ),
-              ),
-              const SizedBox(
-                height: 8.0,
-              ),
-              Expanded(
-                child: Column(
-                  children: [
-                    FadeInDown(
-                      duration: const Duration(milliseconds: 300),
-                      child: Padding(
+                child: SlideInLeft(
+                  duration: const Duration(milliseconds: 300),
+                  child: Column(
+                    children: [
+                      Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                if(CheckCubit.get(context).hasInternet) {
-                                  if(AppCubit.get(context).messages.isNotEmpty) {
-                                    AppCubit.get(context).clearIndexing();
-                                    AppCubit.get(context).clearMessages();
-                                    Future.delayed(const Duration(milliseconds: 100)).then((value) {
-                                      scaffoldKey.currentState?.closeDrawer();
-                                    });
-                                  }
-                                } else {
-                                  showFlutterToast(
-                                      message: 'No Internet Connection',
-                                      state: ToastStates.error,
-                                      context: context);
-                                }
-                              },
-                              style: ButtonStyle(
-                                shape: MaterialStatePropertyAll(
-                                  RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10.0),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                CircleAvatar(
+                                  radius: 36.5,
+                                  backgroundColor:
+                                      ThemeCubit.get(context).isDarkTheme
+                                          ? Colors.grey.shade50
+                                          : Colors.black,
+                                  child: CircleAvatar(
+                                    radius: 34.0,
+                                    backgroundImage:
+                                        NetworkImage('${model?.imageProfile}'),
                                   ),
                                 ),
-                                side: MaterialStatePropertyAll(
-                                  BorderSide(
-                                    width: 1.0,
-                                    color: (AppCubit.get(context).messages.isEmpty) ?
-                                    Theme.of(context).colorScheme.primary.withOpacity(.3) :
-                                    Theme.of(context).colorScheme.primary,
+                                Material(
+                                  elevation: 2.0,
+                                  borderRadius: BorderRadius.circular(50.0),
+                                  clipBehavior: Clip.antiAlias,
+                                  color: ThemeCubit.get(context).isDarkTheme
+                                      ? thirdColor
+                                      : Colors.white,
+                                  child: IconButton(
+                                    onPressed: () {
+                                      ThemeCubit.get(context).changeTheme(!isDark);
+                                      if (!ThemeCubit.get(context).isDarkTheme) {
+                                        animationController.reset();
+                                        animationController.animateTo(0.65);
+                                      } else {
+                                        animationController.reverse();
+                                      }
+                                    },
+                                    icon: Lottie.asset(Icons8.day_night_weather,
+                                        width: 30.0,
+                                        height: 30.0,
+                                        controller: animationController),
+                                    tooltip: 'Change Mode',
+                                    enableFeedback: true,
                                   ),
                                 ),
-                                ),
-                              icon: Icon(
-                                EvaIcons.plusSquareOutline,
-                                color: (AppCubit.get(context).messages.isEmpty) ?
-                                Theme.of(context).colorScheme.primary.withOpacity(.3) : null,
+                              ],
+                            ),
+                            const SizedBox(
+                              height: 14.0,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 2.0,
                               ),
-                              label: Text(
-                                'New Chat',
-                                style: TextStyle(
+                              child: Text(
+                                model?.fullName ?? '...',
+                                maxLines: 1,
+                                style: const TextStyle(
                                   fontSize: 16.0,
-                                  color: (AppCubit.get(context).messages.isEmpty) ?
-                                  Theme.of(context).colorScheme.primary.withOpacity(.3) : null,
+                                  overflow: TextOverflow.ellipsis,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
-                            defaultIconButton(
-                                toolTip: 'Search',
-                                elevation: 2.0,
-                                radius1: 10.0,
-                                radius2: 10.0,
-                                padding: 8.0,
-                                function: () {
-                                  if(CheckCubit.get(context).hasInternet) {
-                                    Future.delayed(const Duration(milliseconds: 100)).then((value) {
-                                      scaffoldKey.currentState?.closeDrawer();
-                                      Navigator.of(context).push(createSecondRoute(screen: const SearchChatScreen()));
-                                    });
-                                  } else {
-                                    showFlutterToast(
-                                        message: 'No Internet Connection',
-                                        state: ToastStates.error,
-                                        context: context);
-                                  }
-                                },
-                                icon: EvaIcons.searchOutline,
-                                color: Theme.of(context).colorScheme.primary.withOpacity(.9),
-                                colorIcon: Colors.white),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(
-                      height: 12.0,
-                    ),
-                    Expanded(
-                      child: ConditionalBuilder(
-                        condition: AppCubit.get(context).groupedChats.isNotEmpty,
-                        builder: (context) => RefreshIndicator(
-                              key: refreshIndicatorKey,
-                              color: Theme.of(context).colorScheme.primary,
-                              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                              onRefresh: () async {
-                                await Future.delayed(const Duration(seconds: 2)).then((value) {
-                                  if(CheckCubit.get(context).hasInternet) {
-                                    AppCubit.get(context).getChats();
-                                  }
-                                });
-                              },
-                              child: ListView.separated(
-                                itemBuilder: (context, i) {
-                                  String status = AppCubit.get(context).groupedChats.keys.elementAt(i);
-                                  List<dynamic> chats = AppCubit.get(context).groupedChats.values.elementAt(i);
-                                  List<String> idChats = AppCubit.get(context).groupedIdChats.values.elementAt(i);
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10.0,
+                        ),
+                        child: Divider(
+                          thickness: 0.6,
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 8.0,
+                      ),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            FadeInDown(
+                              duration: const Duration(milliseconds: 300),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        if (CheckCubit.get(context).hasInternet) {
+                                          if (AppCubit.get(context).messages.isNotEmpty) {
+                                            AppCubit.get(context).clearIndexing();
+                                            AppCubit.get(context).clearMessages();
+                                            Future.delayed(const Duration(
+                                                    milliseconds: 100))
+                                                .then((value) {
+                                              scaffoldKey.currentState
+                                                  ?.closeDrawer();
+                                            });
+                                          }
+                                        } else {
+                                          showFlutterToast(
+                                              message: 'No Internet Connection',
+                                              state: ToastStates.error,
+                                              context: context);
+                                        }
+                                      },
+                                      style: ButtonStyle(
+                                        shape: MaterialStatePropertyAll(
+                                          RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10.0),
+                                          ),
+                                        ),
+                                        side: MaterialStatePropertyAll(
+                                          BorderSide(
+                                            width: 1.0,
+                                            color: (AppCubit.get(context)
+                                                    .messages
+                                                    .isEmpty)
+                                                ? Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withOpacity(.3)
+                                                : Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
+                                          ),
+                                        ),
+                                      ),
+                                      icon: Icon(
+                                        EvaIcons.plusSquareOutline,
+                                        color:
+                                            (AppCubit.get(context).messages.isEmpty)
+                                                ? Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withOpacity(.3)
+                                                : null,
+                                      ),
+                                      label: Text(
+                                        'New Chat',
+                                        style: TextStyle(
+                                          fontSize: 16.0,
+                                          color: (AppCubit.get(context)
+                                                  .messages
+                                                  .isEmpty)
+                                              ? Theme.of(context)
+                                                  .colorScheme
+                                                  .primary
+                                                  .withOpacity(.3)
+                                              : null,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    defaultIconButton(
+                                        toolTip: 'Search',
+                                        elevation: 2.0,
+                                        radius1: 10.0,
+                                        radius2: 10.0,
+                                        padding: 8.0,
+                                        function: () {
+                                          if (CheckCubit.get(context).hasInternet) {
+                                            Future.delayed(const Duration(
+                                                    milliseconds: 100))
+                                                .then((value) {
+                                              scaffoldKey.currentState
+                                                  ?.closeDrawer();
+                                              Navigator.of(context).push(
+                                                  createSecondRoute(
+                                                      screen:
+                                                          const SearchChatScreen()));
+                                            });
+                                          } else {
+                                            showFlutterToast(
+                                                message: 'No Internet Connection',
+                                                state: ToastStates.error,
+                                                context: context);
+                                          }
+                                        },
+                                        icon: EvaIcons.searchOutline,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary
+                                            .withOpacity(.9),
+                                        colorIcon: Colors.white),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(
+                              height: 12.0,
+                            ),
+                            Expanded(
+                              child: ConditionalBuilder(
+                                condition:
+                                    AppCubit.get(context).groupedChats.isNotEmpty,
+                                builder: (context) => RefreshIndicator(
+                                  key: refreshIndicatorKey,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  backgroundColor:
+                                      Theme.of(context).scaffoldBackgroundColor,
+                                  onRefresh: () async {
+                                    await Future.delayed(const Duration(seconds: 2))
+                                        .then((value) {
+                                      if (CheckCubit.get(context).hasInternet) {
+                                        AppCubit.get(context).getChats();
+                                      }
+                                    });
+                                  },
+                                  child: ListView.separated(
+                                    controller: anotherScrollController,
+                                    itemBuilder: (context, i) {
+                                      String status = AppCubit.get(context).groupedChats.keys.elementAt(i);
+                                      List<dynamic> chats = AppCubit.get(context).groupedChats.values.elementAt(i);
+                                      List<String> idChats = AppCubit.get(context).groupedIdChats.values.elementAt(i);
 
-                                  // Inner indexes
-                                  Map<int, List<int>> listOfIndex = {
-                                    i: List.generate(chats.length, (index) => index),
-                                  };
+                                      // Inner indexes
+                                      Map<int, List<int>> listOfIndex = {
+                                        i: List.generate(
+                                            chats.length, (index) => index),
+                                      };
 
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           SlideInLeft(
-                                            duration: const Duration(milliseconds: 200),
+                                            duration:
+                                                const Duration(milliseconds: 200),
                                             child: Padding(
                                               padding: const EdgeInsets.only(
                                                 left: 8.0,
@@ -1269,8 +1531,10 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                                                 status,
                                                 style: TextStyle(
                                                   fontSize: 14.0,
-                                                  color: ThemeCubit.get(context).isDarkTheme ?
-                                                  Colors.grey.shade500 : Colors.grey.shade600,
+                                                  color: ThemeCubit.get(context)
+                                                          .isDarkTheme
+                                                      ? Colors.grey.shade500
+                                                      : Colors.grey.shade600,
                                                   fontWeight: FontWeight.bold,
                                                 ),
                                               ),
@@ -1281,86 +1545,108 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                                               physics: const NeverScrollableScrollPhysics(),
                                               itemBuilder: (context, index) {
                                                 int actualIndex = listOfIndex[i]![index];
-                                                return buildItemChat(chats[actualIndex], idChats[actualIndex],
-                                                    i, actualIndex);
+
+                                                if(CheckCubit.get(context).hasInternet) {
+                                                  if(!isSearchCalled && widget.idSearchChat != null &&
+                                                      widget.idSearchChat == idChats[actualIndex]) {
+                                                    isSearchCalled = true;
+                                                    Future.delayed(const Duration(milliseconds: 200)).then((value) {
+                                                      AppCubit.get(context).changeIndexing(
+                                                          gIndex: i,
+                                                          innerIndex: actualIndex);
+                                                      AppCubit.get(context).clearSearchChatId(
+                                                          idSearchChat: widget.idSearchChat);
+                                                    });
+                                                  }
+                                                }
+
+                                                return buildItemChat(
+                                                    chats[actualIndex],
+                                                    idChats[actualIndex],
+                                                    i,
+                                                    actualIndex);
                                               },
                                               itemCount: chats.length),
                                         ],
                                       );
-                                  },
-                                separatorBuilder: (context, index) => const SizedBox(
-                                  height: 24.0,
+                                    },
+                                    separatorBuilder: (context, index) =>
+                                        const SizedBox(
+                                      height: 24.0,
+                                    ),
+                                    itemCount:
+                                        AppCubit.get(context).groupedChats.length,
+                                  ),
                                 ),
-                                itemCount: AppCubit.get(context).groupedChats.length,
-                                ),
+                                fallback: (context) => (state
+                                        is LoadingGetChatsAppState)
+                                    ? Center(child: LoadingIndicator(os: getOs()))
+                                    : const Center(
+                                        child: Text(
+                                          'There is no chats',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 16.0,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.6,
+                                          ),
+                                        ),
+                                      ),
+                              ),
                             ),
-                        fallback: (context) => (state is LoadingGetChatsAppState) ?
-                        Center(child: LoadingIndicator(os: getOs())) :
-                        const Center(
+                          ],
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10.0,
+                        ),
+                        child: Divider(
+                          thickness: 0.6,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 10.0,
+                        ),
+                        child: ElevatedButton(
+                          clipBehavior: Clip.antiAlias,
+                          style: ButtonStyle(
+                            side: MaterialStatePropertyAll(
+                              BorderSide(
+                                width: 1.5,
+                                color: redColor,
+                              ),
+                            ),
+                          ),
+                          onPressed: () {
+                            if (CheckCubit.get(context).hasInternet) {
+                              showAlertSignOut(context);
+                            } else {
+                              showFlutterToast(
+                                  message: 'No Internet Connection',
+                                  state: ToastStates.error,
+                                  context: context);
+                            }
+                          },
                           child: Text(
-                            'There is no chats',
-                            textAlign: TextAlign.center,
+                            'Sign Out',
                             style: TextStyle(
-                              fontSize: 16.0,
+                              fontSize: 17.0,
+                              color: redColor,
                               fontWeight: FontWeight.bold,
-                              letterSpacing: 0.6,
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 10.0,
-                ),
-                child: Divider(
-                  thickness: 0.6,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 10.0,
-                ),
-                child: ElevatedButton(
-                  clipBehavior: Clip.antiAlias,
-                  style: ButtonStyle(
-                    side: MaterialStatePropertyAll(
-                      BorderSide(
-                        width: 1.5,
-                        color: redColor,
-                      ),
-                    ),
-                  ),
-                  onPressed: () {
-                    if(CheckCubit.get(context).hasInternet) {
-                      showAlertSignOut(context);
-                    } else {
-                      showFlutterToast(
-                          message: 'No Internet Connection',
-                          state: ToastStates.error,
-                          context: context);
-                    }
-                  },
-                  child: Text(
-                    'Sign Out',
-                    style: TextStyle(
-                      fontSize: 17.0,
-                      color: redColor,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    ),
+            ),
+          );
+    }
   );
-
 
   dynamic showAlertSignOut(BuildContext context) {
     return showDialog(
@@ -1413,9 +1699,6 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       },
     );
   }
-
-
-
 
   // Chats
   Widget buildItemChat(chat, idChat, gIndex, actualIndex) => Padding(
@@ -1487,69 +1770,69 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   Future<dynamic> showOptionsForChat({
     required String idChat,
     required String chatName,
-  }) => showModalBottomSheet(
-    showDragHandle: true,
-    clipBehavior: Clip.antiAlias,
-    context: context,
-    builder: (BuildContext context) {
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8.0, 0.0, 8.0, 12.0),
-          child: Wrap(
-            clipBehavior: Clip.antiAlias,
-            children: [
-              ListTile(
-                enableFeedback: true,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                ),
-                onTap: () {
-                  showAlertRename(context, idChat, chatName);
-                },
-                leading: Icon(
-                  EvaIcons.editOutline,
-                  color: greenColor,
-                ),
-                title: Text(
-                  'Rename',
-                  style: TextStyle(
-                    fontSize: 16.0,
-                    color: greenColor,
-                    fontWeight: FontWeight.bold,
+  }) =>
+      showModalBottomSheet(
+        showDragHandle: true,
+        clipBehavior: Clip.antiAlias,
+        context: context,
+        builder: (BuildContext context) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8.0, 0.0, 8.0, 12.0),
+              child: Wrap(
+                clipBehavior: Clip.antiAlias,
+                children: [
+                  ListTile(
+                    enableFeedback: true,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    onTap: () {
+                      showAlertRename(context, idChat, chatName);
+                    },
+                    leading: Icon(
+                      EvaIcons.editOutline,
+                      color: greenColor,
+                    ),
+                    title: Text(
+                      'Rename',
+                      style: TextStyle(
+                        fontSize: 16.0,
+                        color: greenColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              ListTile(
-                enableFeedback: true,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                ),
-                onTap: () {
-                  setState(() {
-                    isChatEmpty = false;
-                  });
-                  showAlertRemove(context, idChat);
-                },
-                leading: Icon(
-                  Icons.delete_outline_rounded,
-                  color: redColor,
-                ),
-                title: Text(
-                  'Delete',
-                  style: TextStyle(
-                    fontSize: 16.0,
-                    color: redColor,
-                    fontWeight: FontWeight.bold,
+                  ListTile(
+                    enableFeedback: true,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                    onTap: () {
+                      setState(() {
+                        isChatEmpty = false;
+                      });
+                      showAlertRemove(context, idChat);
+                    },
+                    leading: Icon(
+                      Icons.delete_outline_rounded,
+                      color: redColor,
+                    ),
+                    title: Text(
+                      'Delete',
+                      style: TextStyle(
+                        fontSize: 16.0,
+                        color: redColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
-    },
-  );
-
 
   dynamic showAlertRename(BuildContext context, idChat, chatName) {
     return showDialog(
@@ -1577,15 +1860,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                       width: 2.0,
                     ),
                   ),
-                  prefixIcon: const Icon(
-                      EvaIcons.editOutline
-                  ),
+                  prefixIcon: const Icon(EvaIcons.editOutline),
                 ),
                 validator: (value) {
-                  if(value == null || value.isEmpty) {
+                  if (value == null || value.isEmpty) {
                     return 'Chat name must not be empty';
                   }
-                  if(value.length > 30) {
+                  if (value.length > 30) {
                     return 'Name too large';
                   }
                   return null;
@@ -1609,10 +1890,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                   child: TextButton(
                     onPressed: () {
                       focusNode.unfocus();
-                      if(CheckCubit.get(context).hasInternet) {
-                        if(anotherFormKey.currentState!.validate()) {
+                      if (CheckCubit.get(context).hasInternet) {
+                        if (anotherFormKey.currentState!.validate()) {
                           String name = nameController.text;
-                          AppCubit.get(context).renameChat(idChat: idChat, name: name);
+                          AppCubit.get(context)
+                              .renameChat(idChat: idChat, name: name);
                           Navigator.pop(dialogContext);
                           Navigator.pop(context);
                           nameController.clear();
@@ -1641,7 +1923,6 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       },
     );
   }
-
 
   dynamic showAlertRemove(BuildContext context, idChat) {
     return showDialog(
@@ -1677,7 +1958,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
               ),
               TextButton(
                 onPressed: () {
-                  if(CheckCubit.get(context).hasInternet) {
+                  if (CheckCubit.get(context).hasInternet) {
                     AppCubit.get(context).removeChat(idChat: idChat);
                     Navigator.pop(dialogContext);
                     showLoading(context);
@@ -1705,134 +1986,143 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     );
   }
 
-
-
-
-
   // Messages
   Widget buildItemMessage(msg, index) => Align(
-    alignment: (msg['is_user']) ? Alignment.centerRight: Alignment.centerLeft,
-    child: (msg['is_user']) ?
-    FadeInRight(
-      duration: const Duration(milliseconds: 150),
-      child: Container(
-        padding: const EdgeInsets.all(12.0),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12.0),
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        clipBehavior: Clip.antiAlias,
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width.toInt() / 1.3,
-        ),
-        child: (msg['image_url'] == '' || msg['image_url'] == null) ?
-        Text(
-          '${msg['message']}',
-          style: const TextStyle(
-            fontSize: 15.0,
-            color: Colors.white,
-            letterSpacing: 0.6,
-            fontWeight: FontWeight.bold,
-          ),
-        ) :
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              onTap: () {
-                showFullImage(msg['image_url']);
-              },
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12.0),
-                child: Image.network(
-                  '${msg['image_url']}',
-                  width: 150.0,
-                  height: 150.0,
-                  fit: BoxFit.cover,
-                  frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                    if(frame == null) {
-                      return Container(
-                          width: 150.0,
-                          height: 150.0,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12.0,),
-                            color: Colors.blue.shade800,
+        alignment: (msg['is_user']) ? Alignment.centerRight : Alignment.centerLeft,
+        child: (msg['is_user'])
+            ? FadeInRight(
+                duration: const Duration(milliseconds: 150),
+                child: Container(
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12.0),
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width.toInt() / 1.3,
+                  ),
+                  child: (msg['image_url'] == '' || msg['image_url'] == null)
+                      ? Text(
+                          '${msg['message']}',
+                          style: const TextStyle(
+                            fontSize: 15.0,
+                            color: Colors.white,
+                            letterSpacing: 0.6,
+                            fontWeight: FontWeight.bold,
                           ),
-                          clipBehavior: Clip.antiAlias,
-                      );
-                    }
-                    return FadeIn(
-                        duration: const Duration(milliseconds: 300),
-                        child: child);
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 150.0,
-                      height: 150.0,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12.0,),
-                        color: Colors.blue.shade800,
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: const Center(
-                        child: Icon(
-                          Icons.error_outline_rounded,
-                          size: 30.0,
-                          color: Colors.white,
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                showFullImage(msg['image_url']);
+                              },
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12.0),
+                                child: Image.network((msg['image_url']),
+                                  width: 150.0,
+                                  height: 150.0,
+                                  fit: BoxFit.cover,
+                                  frameBuilder: (context, child, frame,
+                                      wasSynchronouslyLoaded) {
+                                    if (frame == null) {
+                                      return showShimmerLoading(
+                                        width: 150.0,
+                                        height: 150.0,
+                                        radius: 12.0,
+                                      );
+                                    }
+                                    return FadeIn(
+                                        duration: const Duration(milliseconds: 300),
+                                        child: child);
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      width: 150.0,
+                                      height: 150.0,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(
+                                          12.0,
+                                        ),
+                                        border: Border.all(
+                                          width: 1.0,
+                                          color: Colors.white,
+                                        ),
+                                        color: Colors.blue.shade800,
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.error_outline_rounded,
+                                          size: 30.0,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                            const SizedBox(
+                              height: 10.0,
+                            ),
+                            Text(
+                              '${msg['message']}',
+                              style: const TextStyle(
+                                fontSize: 15.0,
+                                color: Colors.white,
+                                letterSpacing: 0.6,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    );
-                  },
+                ),
+              )
+            : FadeInLeft(
+                duration: const Duration(milliseconds: 150),
+                child: Container(
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12.0),
+                    border: Border.all(
+                      width: 1.5,
+                      color: ThemeCubit.get(context).isDarkTheme
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+                    color: ThemeCubit.get(context).isDarkTheme
+                        ? HexColor('303030').withOpacity(.8)
+                        : Colors.grey.shade200,
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width.toInt() / 1.3,
+                  ),
+                  child: SelectableText.rich(
+                    TextSpan(
+                    style: const TextStyle(
+                      fontFamily: 'Varela',
+                      fontSize: 15.0,
+                      letterSpacing: 0.6,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    children: buildTextSpans(msg['message']),),
+                    // onSelectionChanged: (selection, base) async {
+                    //   if (selection.baseOffset != selection.extentOffset) {
+                    //     final String selectedText = msg['message'].substring
+                    //       (selection.baseOffset, selection.extentOffset);
+                    //     await Clipboard.setData(ClipboardData(text: selectedText)).then((value) {
+                    //       toast('Copied to clipboard', duration: 2500);
+                    //     });
+                    //   }
+                    // },
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(
-              height: 10.0,
-            ),
-            Text(
-              '${msg['message']}',
-              style: const TextStyle(
-                fontSize: 15.0,
-                color: Colors.white,
-                letterSpacing: 0.6,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ) :
-    FadeInLeft(
-      duration: const Duration(milliseconds: 150),
-      child: Container(
-        padding: const EdgeInsets.all(12.0),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12.0),
-          border: Border.all(
-            width: 1.5,
-            color: ThemeCubit.get(context).isDarkTheme ? Colors.white : Colors.black,
-          ),
-          color: ThemeCubit.get(context).isDarkTheme ? HexColor('303030').withOpacity(.8) : Colors.grey.shade200,
-        ),
-        clipBehavior: Clip.antiAlias,
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width.toInt() / 1.3,
-        ),
-        child: Text.rich(
-            TextSpan(
-              style: const TextStyle(
-                fontFamily: 'Varela',
-                fontSize: 15.0,
-                letterSpacing: 0.6,
-                fontWeight: FontWeight.bold,
-              ),
-              children: buildTextSpans(msg['message']),
-            )),
-      ),
-    ),
-  );
-
-
+      );
 
   List<TextSpan> buildTextSpans(String inputText) {
     final RegExp urlRegex = RegExp(
@@ -1840,16 +2130,26 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       caseSensitive: false,
     );
 
-    // final RegExp titleRegex = RegExp(
-    //   r'\* \w+\.\w+:',
-    //   caseSensitive: false,
-    // );
+    final RegExp titleRegex = RegExp(
+      r'\*{2}(.*?)\*{2}',
+      caseSensitive: false,
+    );
+
+    final RegExp bulletRegex = RegExp(
+      r'^- `(.+?)`$',
+      multiLine: true,
+    );
+
+    final RegExp codeRegex = RegExp(r'```([a-zA-Z]+)\n(.*?)\n```', dotAll: true);
+
 
     List<TextSpan> spans = [];
     int previousEnd = 0;
 
     Iterable<Match> urlMatches = urlRegex.allMatches(inputText);
-    // Iterable<Match> titleMatches = titleRegex.allMatches(inputText);
+    Iterable<Match> titleMatches = titleRegex.allMatches(inputText);
+    Iterable<Match> bulletMatches = bulletRegex.allMatches(inputText);
+    Iterable<Match> codeMatches = codeRegex.allMatches(inputText);
 
     for (Match match in urlMatches) {
       if (match.start > previousEnd) {
@@ -1872,10 +2172,10 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
           ),
           recognizer: TapGestureRecognizer()
             ..onTap = () async {
-              if(CheckCubit.get(context).hasInternet) {
+              if (CheckCubit.get(context).hasInternet) {
                 await HapticFeedback.vibrate();
                 String url = match.group(0) ?? '';
-                if(!url.contains('https') || !url.contains('http')) {
+                if (!url.contains('https') || !url.contains('http')) {
                   url = 'https://${match.group(0)}';
                 }
                 await lunch(url).then((value) {
@@ -1901,29 +2201,80 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       previousEnd = match.end;
     }
 
-    // for (Match match in titleMatches) {
-    //   if (match.start > previousEnd) {
-    //     spans.add(
-    //       TextSpan(
-    //         text: inputText.substring(previousEnd, match.start),
-    //         style: TextStyle(
-    //           color: ThemeCubit.get(context).isDarkTheme
-    //               ? Colors.white
-    //               : Colors.black,
-    //         ),
-    //       ),
-    //     );
-    //   }
-    //   spans.add(
-    //     TextSpan(
-    //       text: match.group(0),
-    //       style: TextStyle(
-    //         color: greenColor,
-    //       ),
-    //     ),
-    //   );
-    //   previousEnd = match.end;
-    // }
+    for (Match match in titleMatches) {
+      if (match.start > previousEnd) {
+        spans.add(
+          TextSpan(
+            text: inputText.substring(previousEnd, match.start),
+            style: TextStyle(
+              color: ThemeCubit.get(context).isDarkTheme
+                  ? Colors.white
+                  : Colors.black,
+            ),
+          ),
+        );
+      }
+      spans.add(
+        TextSpan(
+          text: match.group(1),
+          style: TextStyle(
+            color: greenColor,
+          ),
+        ),
+      );
+      previousEnd = match.end;
+    }
+
+    for (Match match in bulletMatches) {
+      if (match.start > previousEnd) {
+        spans.add(
+          TextSpan(
+            text: inputText.substring(previousEnd, match.start),
+            style: TextStyle(
+              color: ThemeCubit.get(context).isDarkTheme
+                  ? Colors.white
+                  : Colors.black,
+            ),
+          ),
+        );
+      }
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          style: TextStyle(
+            color: greenColor,
+          ),
+        ),
+      );
+      previousEnd = match.end;
+    }
+
+    for (Match match in codeMatches) {
+      if (match.start > previousEnd) {
+        spans.add(
+          TextSpan(
+            text: inputText.substring(previousEnd, match.start),
+            style: TextStyle(
+              color: ThemeCubit.get(context).isDarkTheme
+                  ? Colors.white
+                  : Colors.black,
+            ),
+          ),
+        );
+      }
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          style: TextStyle(
+            color: ThemeCubit.get(context).isDarkTheme ?
+            Colors.blueGrey.shade200 : Colors.teal.shade900,
+            fontSize: 14.0,
+            fontFamily: 'Inconsolata',
+          ),
+        ),
+      );
+      previousEnd = match.end;
+    }
 
     if (previousEnd < inputText.length) {
       spans.add(
@@ -1941,9 +2292,6 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     return spans;
   }
 
-
-
-
   Future<void> lunch(String url) async {
     final Uri baseUrl = Uri.parse(url);
     if (await canLaunchUrl(baseUrl)) {
@@ -1951,191 +2299,183 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     }
   }
 
-
-
-
-
   // Vocal Config
   Future<dynamic> langConfig() => showModalBottomSheet(
-    showDragHandle: true,
-    isDismissible: false,
-    enableDrag: false,
-    clipBehavior: Clip.antiAlias,
-    context: context,
-    builder: (BuildContext context) {
-      return SafeArea(
-        child: Padding(
-         padding: const EdgeInsets.fromLTRB(8.0, 0.0, 8.0, 12.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text.rich(
-                textAlign: TextAlign.center,
-                TextSpan(
-                  text: 'Which lang do you want to use : \n',
-                  children: [
-                    const TextSpan(
-                        text: 'Default is  ',
-                    ),
-                    TextSpan(
-                      text: 'English',
-                      style: TextStyle(
-                        color: greenColor,
-                        height: 2.0,
-                      )
-                    ),
-                  ],
-                  style: const TextStyle(
-                    fontSize: 17.0,
-                    letterSpacing: 0.6,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(
-                height: 16.0,
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        showDragHandle: true,
+        isDismissible: false,
+        enableDrag: false,
+        clipBehavior: Clip.antiAlias,
+        context: context,
+        builder: (BuildContext context) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8.0, 0.0, 8.0, 12.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextButton(
-                      onPressed: () {
-                        setState(() {
-                          local = 'ar-DZ';
-                        });
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        'Arabic',
-                        style: TextStyle(
-                          fontSize: 16.0,
-                          fontWeight: FontWeight.bold,
+                  Text.rich(
+                    textAlign: TextAlign.center,
+                    TextSpan(
+                      text: 'Which lang do you want to use : \n',
+                      children: [
+                        const TextSpan(
+                          text: 'Default is  ',
                         ),
+                        TextSpan(
+                            text: 'English',
+                            style: TextStyle(
+                              color: greenColor,
+                              height: 2.0,
+                            )),
+                      ],
+                      style: const TextStyle(
+                        fontSize: 17.0,
+                        letterSpacing: 0.6,
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
                   ),
-                  TextButton(
-                      onPressed: () {
-                        setState(() {
-                          local = 'en-US';
-                        });
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        'English',
-                        style: TextStyle(
-                          fontSize: 16.0,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                  const SizedBox(
+                    height: 16.0,
                   ),
-                  TextButton(
-                      onPressed: () {
-                        setState(() {
-                          local = 'fr-FR';
-                        });
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        'French',
-                        style: TextStyle(
-                          fontSize: 16.0,
-                          fontWeight: FontWeight.bold,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            local = 'ar-DZ';
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: const Text(
+                          'Arabic',
+                          style: TextStyle(
+                            fontSize: 16.0,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            local = 'en-US';
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: const Text(
+                          'English',
+                          style: TextStyle(
+                            fontSize: 16.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            local = 'fr-FR';
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: const Text(
+                          'French',
+                          style: TextStyle(
+                            fontSize: 16.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
-    },
-  );
-
 
   Future<dynamic> speakConfirmation() => showModalBottomSheet(
-    showDragHandle: true,
-    isDismissible: false,
-    enableDrag: false,
-    clipBehavior: Clip.antiAlias,
-    context: context,
-    builder: (BuildContext context) {
-      return SafeArea(
-        child: Padding(
-         padding: const EdgeInsets.fromLTRB(8.0, 0.0, 8.0, 12.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text.rich(
-                textAlign: TextAlign.center,
-                TextSpan(
-                  text: 'Do you want ',
-                  children: [
-                    TextSpan(
-                      text: 'ChatAI ',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    ),
-                    const TextSpan(
-                      text: 'speak with you?',
-                    ),
-                  ],
-                  style: const TextStyle(
-                    fontSize: 17.0,
-                    letterSpacing: 0.6,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(
-                height: 16.0,
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        showDragHandle: true,
+        isDismissible: false,
+        enableDrag: false,
+        clipBehavior: Clip.antiAlias,
+        context: context,
+        builder: (BuildContext context) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8.0, 0.0, 8.0, 12.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextButton(
-                      onPressed: () async {
-                        setState(() {
-                          isCanSpeak = false;
-                        });
-                        Navigator.pop(context);
-                        await langConfig();
-                      },
-                      child: const Text(
-                        'No',
-                        style: TextStyle(
-                          fontSize: 16.0,
-                          fontWeight: FontWeight.bold,
+                  Text.rich(
+                    textAlign: TextAlign.center,
+                    TextSpan(
+                      text: 'Do you want ',
+                      children: [
+                        TextSpan(
+                            text: 'ChatAI ',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                            )),
+                        const TextSpan(
+                          text: 'speak with you?',
                         ),
+                      ],
+                      style: const TextStyle(
+                        fontSize: 17.0,
+                        letterSpacing: 0.6,
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
                   ),
-                  TextButton(
-                      onPressed: () async {
-                        setState(() {
-                          isCanSpeak = true;
-                        });
-                        Navigator.pop(context);
-                        await langConfig();
-                      },
-                      child: Text(
-                        'Yes',
-                        style: TextStyle(
-                          fontSize: 16.0,
-                          color: greenColor,
-                          fontWeight: FontWeight.bold,
+                  const SizedBox(
+                    height: 16.0,
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      TextButton(
+                        onPressed: () async {
+                          setState(() {
+                            isCanSpeak = false;
+                          });
+                          Navigator.pop(context);
+                          await langConfig();
+                        },
+                        child: const Text(
+                          'No',
+                          style: TextStyle(
+                            fontSize: 16.0,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
+                      TextButton(
+                        onPressed: () async {
+                          setState(() {
+                            isCanSpeak = true;
+                          });
+                          Navigator.pop(context);
+                          await langConfig();
+                        },
+                        child: Text(
+                          'Yes',
+                          style: TextStyle(
+                            fontSize: 16.0,
+                            color: greenColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
-    },
-  );
-
 
   dynamic showFullImage(String imageUrl) =>
        Navigator.of(context).push(createSecondRoute(screen: Scaffold(
@@ -2147,7 +2487,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                  Navigator.pop(context);
                },
                child: InteractiveViewer(
-                 child: Image.network(imageUrl,
+                 child: Image.network((imageUrl),
                    width: MediaQuery.of(context).size.width,
                    height: MediaQuery.of(context).size.height,
                    fit: BoxFit.fitWidth,
@@ -2180,4 +2520,5 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
            ),
          ),
        ),));
+
 }

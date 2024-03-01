@@ -204,9 +204,9 @@ class _SearchChatScreenState extends State<SearchChatScreen> {
       child: ListTile(
         onTap: () {
           if(CheckCubit.get(context).hasInternet) {
-            AppCubit.get(context).changeIndexing(gIndex: gIndex, innerIndex: actualIndex);
+            focusNode.unfocus();
             AppCubit.get(context).getMessages(idChat: idChat);
-            navigateAndNotReturn(context: context, screen: const ChatScreen());
+            navigateAndNotReturn(context: context, screen: ChatScreen(idSearchChat: idChat,));
           } else {
             showFlutterToast(
                 message: 'No Internet Connection',

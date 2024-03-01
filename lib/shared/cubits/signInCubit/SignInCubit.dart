@@ -43,8 +43,6 @@ class SignInCubit extends Cubit<SignInStates> {
 
       emit(ErrorSignInState(error));
     });
-
-
   }
 
 

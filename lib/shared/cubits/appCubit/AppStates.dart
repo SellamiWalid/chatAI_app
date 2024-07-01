@@ -28,6 +28,9 @@ class ErrorSignOutAppState extends AppStates {
 // Change Indexing
 class SuccessChangeIndexingAppState extends AppStates {}
 
+// Select and Change Indexing
+class SuccessSelectAndChangeIndexingAppState extends AppStates {}
+
 // Add chat
 class LoadingAddChatAppState extends AppStates {}
 
@@ -129,6 +132,8 @@ class ErrorPostMessageAppState extends AppStates {
 class LoadingGetMessagesAppState extends AppStates {}
 
 class SuccessGetMessagesAppState extends AppStates {}
+
+class SuccessGenerateHistoryMessagesAppState extends AppStates {}
 
 // Get id messages
 class LoadingGetIdMessagesAppState extends AppStates {}

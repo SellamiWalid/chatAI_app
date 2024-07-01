@@ -34,11 +34,11 @@ Future<void> main() async {
 
   DioHelper.init();
 
-  bool? isStarted = CacheHelper.getData(key: 'isStarted');
+  bool? isStarted = CacheHelper.getCachedData(key: 'isStarted');
 
-  var isDark = CacheHelper.getData(key: 'isDark');
+  var isDark = CacheHelper.getCachedData(key: 'isDark');
 
-  uId = CacheHelper.getData(key: 'uId');
+  uId = CacheHelper.getCachedData(key: 'uId');
 
 
   Widget widget;

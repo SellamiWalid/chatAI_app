@@ -55,7 +55,7 @@ class _AuthOptionsScreenState extends State<AuthOptionsScreen> {
                       state: ToastStates.success,
                       context: context);
 
-                  CacheHelper.saveData(key: 'uId', value: state.userModel.uId)
+                  CacheHelper.saveCachedData(key: 'uId', value: state.userModel.uId)
                       .then((value) {
                     uId = state.userModel.uId;
 
@@ -63,9 +63,7 @@ class _AuthOptionsScreenState extends State<AuthOptionsScreen> {
                     navigateAndNotReturn(
                         context: context, screen: const ChatScreen());
 
-                    setState(() {
-                      isAnimate = true;
-                    });
+                    setState(() {isAnimate = true;});
                   });
                 }
 
@@ -75,7 +73,7 @@ class _AuthOptionsScreenState extends State<AuthOptionsScreen> {
                       state: ToastStates.success,
                       context: context);
 
-                  CacheHelper.saveData(key: 'uId', value: state.userId)
+                  CacheHelper.saveCachedData(key: 'uId', value: state.userId)
                       .then((value) {
                     uId = state.userId;
 
@@ -83,9 +81,7 @@ class _AuthOptionsScreenState extends State<AuthOptionsScreen> {
                     navigateAndNotReturn(
                         context: context, screen: const ChatScreen());
 
-                    setState(() {
-                      isAnimate = true;
-                    });
+                    setState(() {isAnimate = true;});
                   });
                 }
 
@@ -97,9 +93,7 @@ class _AuthOptionsScreenState extends State<AuthOptionsScreen> {
 
                   Navigator.pop(context);
 
-                  setState(() {
-                    isAnimate = true;
-                  });
+                  setState(() {isAnimate = true;});
                 }
 
                 if (state is ErrorCreateAccountGoogleSignInState) {
@@ -127,10 +121,12 @@ class _AuthOptionsScreenState extends State<AuthOptionsScreen> {
                     appBar: AppBar(
                       systemOverlayStyle: SystemUiOverlayStyle(
                         statusBarColor: Theme.of(context).scaffoldBackgroundColor,
-                        statusBarIconBrightness: themeCubit.isDarkTheme ? Brightness.light : Brightness.dark,
+                        statusBarIconBrightness: themeCubit.isDarkTheme
+                            ? Brightness.light : Brightness.dark,
                         systemNavigationBarColor: themeCubit.isDarkTheme
-                            ? HexColor('1a2838')
-                            : HexColor('e3effa'),
+                            ? firstColor : secondColor,
+                        systemNavigationBarIconBrightness: themeCubit.isDarkTheme
+                            ? Brightness.light : Brightness.dark,
                       ),
                     ),
                     body: Column(
@@ -156,18 +152,17 @@ class _AuthOptionsScreenState extends State<AuthOptionsScreen> {
                             ),
                           ),
                         ),
-                        FadeIn(
+                        FadeInUp(
                           duration: const Duration(milliseconds: 400),
                           child: Material(
-                            elevation: 30.0,
                             clipBehavior: Clip.antiAliasWithSaveLayer,
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(24.0),
                               topRight: Radius.circular(24.0),
                             ),
                             color: themeCubit.isDarkTheme
-                                ? darkBlueColor
-                                : lightBlueColor,
+                                ? firstColor
+                                : secondColor,
                             child: Padding(
                               padding: const EdgeInsets.all(26.0),
                               child: Column(
@@ -176,9 +171,7 @@ class _AuthOptionsScreenState extends State<AuthOptionsScreen> {
                                   OutlinedButton(
                                     onPressed: () {
                                       if(checkCubit.hasInternet) {
-                                        setState(() {
-                                          isAnimate = false;
-                                        });
+                                        setState(() {isAnimate = false;});
                                         showLoading(context);
                                         cubit.signInWithGoogle(context);
                                       } else {

@@ -12,7 +12,7 @@ class ThemeCubit extends Cubit<ThemeStates> {
 
   void changeTheme(value) {
     isDarkTheme = value;
-    CacheHelper.saveData(key: 'isDark', value: isDarkTheme).then((value) {
+    CacheHelper.saveCachedData(key: 'isDark', value: isDarkTheme).then((value) {
       emit(SuccessChangeThemeState());
     });
   }

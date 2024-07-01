@@ -64,9 +64,9 @@ class AppCubit extends Cubit<AppStates> {
 
 
   int? globalIndex;
-
   int? currentIndex;
-  
+  int? selectCurrentIndex;
+
   
   void changeIndexing({
     required int gIndex,
@@ -75,6 +75,21 @@ class AppCubit extends Cubit<AppStates> {
     globalIndex = gIndex;
     currentIndex = innerIndex;
     emit(SuccessChangeIndexingAppState());
+  }
+
+  void selectAndChangeIndexing({
+    required int gIndex,
+    required int innerIndex,
+    bool canChange = false,
+  }) {
+    if(globalIndex == gIndex) {
+      if(!canChange) {
+        selectCurrentIndex = innerIndex;
+      } else {
+        currentIndex = innerIndex;
+      }
+    }
+    emit(SuccessSelectAndChangeIndexingAppState());
   }
   
   void clearIndexing() {
@@ -171,7 +186,7 @@ class AppCubit extends Cubit<AppStates> {
       globalIndex = 0;
       currentIndex = 0;
 
-      emit(SuccessAddChatAppState());
+      getChats();
 
       if(imageUpload == null) {
 
@@ -208,7 +223,7 @@ class AppCubit extends Cubit<AppStates> {
     emit(LoadingGetChatsAppState());
 
     FirebaseFirestore.instance.collection('users').doc(uId).collection('chats')
-        .orderBy('times_tamp', descending: true).snapshots().listen((value) {
+        .orderBy('times_tamp', descending: true).get().then((value) {
 
       idChats = [];
       chats = [];
@@ -330,41 +345,6 @@ class AppCubit extends Cubit<AppStates> {
 
   }
 
-
-  Future<void> postMessage({
-    required String message,
-    required String idChat,
-}) async {
-
-    await DioHelper.postData(
-        pathUrl: '/models/gemini-pro:generateContent',
-        data: {
-          'contents': [{
-              'parts': [{
-                  'text': message,
-                }]}],
-          'generationConfig': generationConfig,
-          'safetySettings': safetySettings,
-        }).then((value) async {
-
-      String response = value?.data['candidates'][0]['content']['parts'][0]['text'];
-
-      await addAiMessage(idChat: idChat, message: response, timesTamp: DateTime.timestamp()).then((value) {
-        getMessages(idChat: idChat);
-      });
-
-    }).catchError((error) {
-
-      if(kDebugMode) {
-        print('${error.toString()} --> in post message');
-      }
-
-      emit(ErrorPostMessageAppState(error));
-
-    });
-  }
-
-
   Future<void> addUserMessage({
     required String idChat,
     required String message,
@@ -421,8 +401,109 @@ class AppCubit extends Cubit<AppStates> {
 
   }
 
+
   List<String> idMessages = [];
   List<dynamic> selectChatMessages = [];
+
+  List<dynamic> historyMessages = [];
+
+  void generateHistOfMsgs({
+    required String role,
+    required String text,
+    bool isImageUploaded = false,
+    String? extension,
+    String? imgBase64,
+}) {
+
+    if(!isImageUploaded) {
+
+      historyMessages.add({
+        'role': role,
+        'parts': [{'text': text}],
+      });
+
+    } else {
+
+        historyMessages.add({
+          'role': role,
+          'parts': [{'text': text},
+            {'inlineData': {
+              'mimeType': 'image/$extension',
+              'data': imgBase64,}}],
+        });
+    }
+
+   emit(SuccessGenerateHistoryMessagesAppState());
+
+  }
+
+
+  Future<void> generateHistOfImgMsg({
+    required String role,
+    required String imageUrl,
+    required String text,
+}) async {
+
+    emit(LoadingGetMessagesAppState());
+
+    Uri uri = Uri.parse(imageUrl);
+    String typeImage = uri.path.split('.').last;
+
+    Dio dio = Dio();
+    await dio.get(imageUrl, options: Options(responseType: ResponseType.bytes)).then((value) {
+
+      String imageBase64 = base64Encode(value.data);
+      if(typeImage == 'jpg') {typeImage = 'jpeg';}
+
+      historyMessages.add({
+        'role': role,
+        'parts': [{'text': text},
+          {'inlineData': {
+            'mimeType': 'image/$typeImage',
+            'data': imageBase64,}}],
+      });
+
+      emit(SuccessGenerateHistoryMessagesAppState());
+    });
+
+  }
+
+
+
+  Future<void> postMessage({
+    required String message,
+    required String idChat,
+  }) async {
+
+    // generate history of messages
+    generateHistOfMsgs(role: 'user', text: message);
+
+    await DioHelper.postData(
+        pathUrl: '/models/gemini-1.0-pro:generateContent',
+        data: {
+          'contents': historyMessages,
+          'generationConfig': generationConfig,
+          'safetySettings': safetySettings,
+        }).then((value) async {
+
+      String response = value?.data['candidates'][0]['content']['parts'][0]['text'];
+
+      await addAiMessage(idChat: idChat, message: response, timesTamp: DateTime.timestamp()).then((value) {
+        getMessages(idChat: idChat);
+      });
+
+    }).catchError((error) {
+
+      if(kDebugMode) {
+        print('${error.toString()} --> in post message');
+      }
+
+      emit(ErrorPostMessageAppState(error));
+
+    });
+  }
+
+
 
   void getMessages({
     required String idChat,
@@ -432,22 +513,42 @@ class AppCubit extends Cubit<AppStates> {
     emit(LoadingGetMessagesAppState());
 
     FirebaseFirestore.instance.collection('users').doc(uId).collection('chats').doc(idChat).
-    collection('messages').orderBy('times_tamp').snapshots().listen((value) {
+    collection('messages').orderBy('times_tamp').get().then((value) async {
 
       idMessages = [];
-      if(!isRemoving) {
-        messages = [];
-      }
+      if(!isRemoving) {messages = [];}
       selectChatMessages = [];
+      historyMessages = [];
 
       for(var element in value.docs) {
         idMessages.add(element.id);
+
         if(!isRemoving) {
           messages.add(element.data());
         } else {
           selectChatMessages.add(element.data());
         }
       }
+
+      // generate history of messages
+      for(var msg in messages) {
+        if(msg['is_user']) {
+          if(msg['image_url'] == '' || msg['image_url'] == null) {
+            generateHistOfMsgs(role: 'user', text: msg['message']);
+          } else {
+            await Future.wait([
+              generateHistOfImgMsg(role: 'user',
+                  imageUrl: msg['image_url'], text: msg['message'])]).then((value) {
+            });
+          }
+        } else {
+          generateHistOfMsgs(role: 'model', text: msg['message']);
+        }
+      }
+
+      // if(kDebugMode) {
+      //   print(historyMessages);
+      // }
 
       emit(SuccessGetMessagesAppState());
 
@@ -489,6 +590,7 @@ class AppCubit extends Cubit<AppStates> {
     messages.clear();
     idMessages.clear();
     selectChatMessages.clear();
+    historyMessages.clear();
     emit(SuccessClearAppState());
   }
 
@@ -524,6 +626,7 @@ class AppCubit extends Cubit<AppStates> {
 
   void removeChat({
     required String idChat,
+    bool isChatSelected = false,
   }) async {
 
     emit(LoadingRemoveChatAppState());
@@ -534,6 +637,8 @@ class AppCubit extends Cubit<AppStates> {
 
     await FirebaseFirestore.instance.collection('users').doc(uId).collection('chats').doc(idChat).delete().then((value) {
 
+      getChats();
+      if(isChatSelected) {getMessages(idChat: idChat);}
       emit(SuccessRemoveChatAppState());
 
     }).catchError((error) {
@@ -684,19 +789,16 @@ class AppCubit extends Cubit<AppStates> {
         typeImage = 'jpeg';
       }
 
+      // generate history of messages
+      generateHistOfMsgs(role: 'user', text: messageText,
+          isImageUploaded: true, extension: typeImage,
+          imgBase64: imageBase64);
+
       await DioHelper.postData(
-          pathUrl: '/models/gemini-pro-vision:generateContent',
+          pathUrl: '/models/gemini-1.5-flash:generateContent',
           data: {
-            'contents': [{
-              'parts': [{
-                'text': messageText,
-              },{
-                'inlineData': {
-                  'mimeType': 'image/$typeImage',
-                  'data': imageBase64,
-                }}
-              ]}],
-            'generationConfig': generationConfigForVision,
+            'contents': historyMessages,
+            'generationConfig': generationConfig,
             'safetySettings': safetySettings,
           }).then((value) async {
 

@@ -5,7 +5,6 @@ import 'package:chat_ai/data/models/userModel/UserModel.dart';
 import 'package:chat_ai/presentation/modules/chatModule/SearchChatScreen.dart';
 import 'package:chat_ai/presentation/modules/startUpModule/authOptionsScreen/AuthOptionsScreen.dart';
 import 'package:chat_ai/shared/adaptive/loadingIndicator/LoadingIndicator.dart';
-import 'package:chat_ai/shared/adaptive/loadingIndicator/LoadingIndicatorKit.dart';
 import 'package:chat_ai/shared/components/Components.dart';
 import 'package:chat_ai/shared/components/Constants.dart';
 import 'package:chat_ai/shared/cubits/appCubit/AppCubit.dart';
@@ -95,6 +94,7 @@ class _ChatScreenState extends State<ChatScreen>
 
   bool canExit = false;
 
+  bool isChatSelected = false;
   bool isChatEmpty = false;
 
   String local = 'en-US';
@@ -121,27 +121,31 @@ class _ChatScreenState extends State<ChatScreen>
 
     if (isWarning) {
       toast('Press back again to exit');
-      setState(() {
-        canExit = false;
-      });
+      setState(() {canExit = false;});
     } else {
+      setState(() {canExit = true;});
       SystemNavigator.pop();
-      setState(() {
-        canExit = true;
+    }
+  }
+
+  void checkFocus() {
+    if (focusNode.hasPrimaryFocus) {
+      setState(() {isHasFocus = true;});
+    } else {
+      Future.delayed(const Duration(milliseconds: 200)).then((value) {
+        setState(() {isHasFocus = false;});
       });
     }
   }
 
+ // ---  Vocal  ---
   Future<void> startListening(lang) async {
     await HapticFeedback.vibrate();
-    setState(() {
-      isStartListening = true;
-    });
+    setState(() {isStartListening = true;});
+
     var available = await speechToText.initialize(
       onError: (error) {
-        setState(() {
-          isStartListening = false;
-        });
+        setState(() {isStartListening = false;});
       },
     );
 
@@ -149,9 +153,7 @@ class _ChatScreenState extends State<ChatScreen>
       await speechToText.listen(
         localeId: lang,
         onResult: (value) {
-          setState(() {
-            textInput = value.recognizedWords;
-          });
+          setState(() {textInput = value.recognizedWords;});
         },
         pauseFor: const Duration(seconds: 5),
         listenOptions: SpeechListenOptions(
@@ -165,9 +167,7 @@ class _ChatScreenState extends State<ChatScreen>
 
   Future<void> stopListening() async {
     await speechToText.stop();
-    setState(() {
-      isStartListening = false;
-    });
+    setState(() {isStartListening = false;});
   }
 
   // For IOS
@@ -181,9 +181,7 @@ class _ChatScreenState extends State<ChatScreen>
     }
     await flutterTts.setLanguage(lang);
     await flutterTts.speak(content);
-    setState(() {
-      isSpeaking = true;
-    });
+    setState(() {isSpeaking = true;});
   }
 
   Future<void> vocalConfig(lang) async {
@@ -191,17 +189,13 @@ class _ChatScreenState extends State<ChatScreen>
     if (!isStartListening && speechToText.isNotListening) {
       if (isSpeaking) {
         await flutterTts.stop();
-        setState(() {
-          isSpeaking = false;
-        });
+        setState(() {isSpeaking = false;});
       }
       await startListening(lang);
     } else {
       await stopListening();
       if (textInput.isNotEmpty) {
-        setState(() {
-          isMicLoading = true;
-        });
+        setState(() {isMicLoading = true;});
         if (cubit.image != null) {
           await Future.delayed(const Duration(milliseconds: 200)).then((value) {
             cubit.clearImage();
@@ -220,6 +214,8 @@ class _ChatScreenState extends State<ChatScreen>
     }
   }
 
+
+  // ---   Configurations   ---
   void resetSettings() {
     setState(() {
       isMicActive = false;
@@ -240,67 +236,57 @@ class _ChatScreenState extends State<ChatScreen>
       await scrollController.animateTo(
           scrollController.position.maxScrollExtent,
           duration: (isSpeaking)
-              ? const Duration(milliseconds: 1800)
-              : const Duration(seconds: 1),
+              ? const Duration(milliseconds: 1500)
+              : const Duration(milliseconds: 800),
           curve: Curves.easeInOut);
     }
   }
 
   void scrollToCurrentIndex(int globalIndex, int currentIndex) {
     if (anotherScrollController.hasClients) {
-      double totalOffset = 0.0;
-      for (int i = 0; i < globalIndex; i++) {
-        int nbrItems = AppCubit.get(context).groupedChats.values.elementAt(i).length;
-        totalOffset += 20.0; // Height of separator
-        totalOffset += nbrItems * 50.0; // chat item height
-      }
-      totalOffset += currentIndex * 100.0;
+      final maxScroll = anotherScrollController.position.maxScrollExtent;
+      final minScroll = anotherScrollController.position.minScrollExtent;
+      final currentScroll = anotherScrollController.position.pixels;
+
+      final bool canScroll = maxScroll > minScroll && currentScroll < maxScroll;
+
+      if (canScroll) {
+        double totalOffset = 0.0;
+        for (int i = 0; i < globalIndex; i++) {
+          int nbrItems = AppCubit.get(context).groupedChats.values.elementAt(i).length;
+          totalOffset += 20.0; // Height of separator
+          totalOffset += nbrItems * 50.0; // Height of chat items
+        }
+        totalOffset += currentIndex * 80.0; // Additional offset for currentIndex
         anotherScrollController.animateTo(
           totalOffset,
           duration: const Duration(seconds: 1),
           curve: Curves.easeInOut,
         );
+      }
     }
   }
 
 
 
+
   @override
   void initState() {
+    super.initState();
+
     if (CheckCubit.get(context).hasInternet) {
       AppCubit.get(context).getProfile();
+      AppCubit.get(context).getChats();
     }
-    animationController =
-        AnimationController(vsync: this, duration: const Duration(seconds: 1));
-    msgController.addListener(() {
-      setState(() {});
-    });
-    focusNode.addListener(() {
-      if (focusNode.hasPrimaryFocus) {
-        setState(() {
-          isHasFocus = true;
-        });
-      } else {
-        Future.delayed(const Duration(milliseconds: 200)).then((value) {
-          setState(() {
-            isHasFocus = false;
-          });
-        });
-      }
-    });
-    nameController.addListener(() {
-      setState(() {});
-    });
-
+    animationController = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    msgController.addListener(() {setState(() {});});
+    focusNode.addListener(checkFocus);
+    nameController.addListener(() {setState(() {});});
     if (!ThemeCubit.get(context).isDarkTheme) {
       animationController.animateTo(0.65);
     }
 
-    if (isIOS) {
-      tts();
-    }
-
-    super.initState();
+    if (isIOS) {tts();}
   }
 
   @override
@@ -311,8 +297,11 @@ class _ChatScreenState extends State<ChatScreen>
     scrollController.dispose();
     anotherScrollController.dispose();
     msgController.dispose();
+    msgController.removeListener((){setState(() {});});
     nameController.dispose();
+    nameController.removeListener((){setState(() {});});
     focusNode.dispose();
+    focusNode.removeListener(checkFocus);
     focusNode2.dispose();
     super.dispose();
   }
@@ -323,10 +312,6 @@ class _ChatScreenState extends State<ChatScreen>
     return Builder(builder: (context) {
       final ThemeData theme = Theme.of(context);
       final bool isDark = theme.brightness == Brightness.dark;
-
-      if (CheckCubit.get(context).hasInternet) {
-        AppCubit.get(context).getChats();
-      }
 
       return BlocConsumer<CheckCubit, CheckStates>(
         listener: (context, state) {},
@@ -348,7 +333,8 @@ class _ChatScreenState extends State<ChatScreen>
                 listener: (context, state) {
                   var cubit = AppCubit.get(context);
 
-                  if (state is SuccessGetMessagesAppState) {
+                  if (state is SuccessGetMessagesAppState ||
+                      state is SuccessGenerateHistoryMessagesAppState) {
                     Future.delayed(const Duration(milliseconds: 300)).then((value) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         scrollToBottom();
@@ -367,8 +353,7 @@ class _ChatScreenState extends State<ChatScreen>
                       }
                     });
                     if (isCanSpeak) {
-                      aiSpeak(cubit.messages[cubit.messages.length - 1]['message'],
-                          local);
+                      aiSpeak(cubit.messages[cubit.messages.length - 1]['message'], local);
                     }
                   }
 
@@ -390,12 +375,13 @@ class _ChatScreenState extends State<ChatScreen>
                               cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0],
                           idMessage:
                               cubit.idMessages[cubit.idMessages.length - 1]);
+                      AppCubit.get(context).getMessages(
+                          idChat: cubit.groupedIdChats.values.elementAt(
+                          cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0]);
                       Future.delayed(const Duration(milliseconds: 600))
                           .then((value) {
                         if (cubit.messages.isEmpty) {
-                          setState(() {
-                            isChatEmpty = true;
-                          });
+                          setState(() {isChatEmpty = true;});
                           cubit.clearIndexing();
                           cubit.removeChat(
                               idChat: cubit.groupedIdChats.values.elementAt(0)[0]);
@@ -416,7 +402,7 @@ class _ChatScreenState extends State<ChatScreen>
 
                   if (state is SuccessGetImageAppState ||
                       state is ErrorGetImageAppState) {
-                    if(getSizeImage(cubit) > 5242880) {
+                    if(getSizeImage(cubit) > 5242880) { // 5MB
                       cubit.clearImage();
                       Future.delayed(const Duration(milliseconds: 300)).then((value) {
                         showFlutterToast(
@@ -436,6 +422,7 @@ class _ChatScreenState extends State<ChatScreen>
                         message: 'Done with success',
                         state: ToastStates.success,
                         context: context);
+                    AppCubit.get(context).getChats();
                   }
 
                   if (state is SuccessRemoveChatAppState) {
@@ -455,7 +442,19 @@ class _ChatScreenState extends State<ChatScreen>
                       //             cubit.globalIndex!)[cubit.currentIndex!]);
                       //   }
                       // }
-                      AppCubit.get(context).clearIndexing();
+
+                      if(isChatSelected) {
+                        AppCubit.get(context).clearIndexing();
+                        Future.delayed(const Duration(milliseconds: 100)).then((value) {
+                          scaffoldKey.currentState?.closeDrawer();
+                        });
+                        setState(() {isChatSelected = false;});
+                      } else {
+                        AppCubit.get(context).selectAndChangeIndexing(
+                            gIndex: AppCubit.get(context).globalIndex!,
+                            innerIndex: AppCubit.get(context).selectCurrentIndex!,
+                            canChange: true);
+                      }
                       Navigator.pop(context);
                       Navigator.pop(context);
                     }
@@ -479,7 +478,7 @@ class _ChatScreenState extends State<ChatScreen>
                   if (state is SuccessSignOutAppState) {
                     Future.delayed(const Duration(milliseconds: 1200))
                         .then((value) {
-                      CacheHelper.removeData(key: 'uId').then((value) {
+                      CacheHelper.removeCachedData(key: 'uId').then((value) {
                         if (value == true) {
                           Navigator.pop(context);
                           navigateAndNotReturn(
@@ -510,12 +509,14 @@ class _ChatScreenState extends State<ChatScreen>
                   return GestureDetector(
                     onHorizontalDragEnd: (details) {
                       if (details.primaryVelocity! > 0) {
+                        if(isHasFocus) focusNode.unfocus();
                         scaffoldKey.currentState?.openDrawer();
                       }
                     },
                     child: PopScope(
                       canPop: canExit,
                       onPopInvoked: (v) {
+                        if(isHasFocus) focusNode.unfocus();
                         exit(timeBackPressed);
                       },
                       child: Scaffold(
@@ -526,6 +527,16 @@ class _ChatScreenState extends State<ChatScreen>
                           elevation: 0.0,
                           scrolledUnderElevation: 0.0,
                           clipBehavior: Clip.antiAlias,
+                          leading: FadeInLeft(
+                            duration: const Duration(milliseconds: 400),
+                            child: IconButton(
+                                enableFeedback: true,
+                                onPressed: () {scaffoldKey.currentState?.openDrawer();},
+                                icon: const Icon(
+                                  Icons.menu_rounded,
+                                  size: 28.0,
+                                ),),
+                          ),
                           title: FadeIn(
                             duration: const Duration(milliseconds: 400),
                             child: Text.rich(
@@ -546,7 +557,7 @@ class _ChatScreenState extends State<ChatScreen>
                           )),
                           actions: [
                             if (cubit.messages.isNotEmpty && !isLoading && !isMicLoading)
-                              FadeIn(
+                              FadeInRight(
                                 duration: const Duration(milliseconds: 400),
                                 child: IconButton(
                                   tooltip: 'New Chat',
@@ -563,25 +574,27 @@ class _ChatScreenState extends State<ChatScreen>
                                     }
                                   },
                                   icon: Icon(
-                                    EvaIcons.plusSquareOutline,
+                                    EvaIcons.plusCircleOutline,
                                     size: 30.0,
                                     color: Theme.of(context).colorScheme.primary,
                                   ),
                                 ),
                               ),
                             const SizedBox(
-                              width: 2.0,
+                              width: 4.0,
                             ),
                           ],
                           systemOverlayStyle: SystemUiOverlayStyle(
-                            statusBarColor:
-                                Theme.of(context).scaffoldBackgroundColor,
+                            statusBarColor: Theme.of(context).scaffoldBackgroundColor,
                             statusBarIconBrightness: themeCubit.isDarkTheme
                                 ? Brightness.light
                                 : Brightness.dark,
                             systemNavigationBarColor: themeCubit.isDarkTheme
                                 ? firstColor
                                 : secondColor,
+                            systemNavigationBarIconBrightness: themeCubit.isDarkTheme
+                                ? Brightness.light
+                                : Brightness.dark,
                           ),
                         ),
                         body: Form(
@@ -600,9 +613,7 @@ class _ChatScreenState extends State<ChatScreen>
                                           buildItemMessage(
                                               cubit.messages[index], index),
                                       separatorBuilder: (context, index) =>
-                                          const SizedBox(
-                                        height: 20.0,
-                                      ),
+                                          const SizedBox(height: 20.0,),
                                       itemCount: cubit.messages.length,
                                     ),
                                   ),
@@ -612,13 +623,11 @@ class _ChatScreenState extends State<ChatScreen>
                                           padding: const EdgeInsets.all(20.0),
                                           child: Column(
                                             children: [
-                                              if ((!isHasFocus &&
-                                                      cubit.image == null) &&
-                                                  (!isLoading &&
-                                                      !isMicLoading)) ...[
+                                              if ((!isHasFocus && cubit.image == null) &&
+                                                  (!isLoading && !isMicLoading)) ...[
                                                 ZoomIn(
                                                   duration: const Duration(
-                                                      milliseconds: 400),
+                                                      milliseconds: 500),
                                                   child: Align(
                                                     alignment: Alignment.center,
                                                     child: Image.asset(
@@ -633,12 +642,13 @@ class _ChatScreenState extends State<ChatScreen>
                                                 ),
                                                 FadeInRight(
                                                   duration: const Duration(
-                                                      milliseconds: 400),
+                                                      milliseconds: 500),
                                                   child: Text(
                                                     'Hello, ${(cubit.userModel != null) ?
                                                     (cubit.userModel!.fullName!.contains(' ') ?
                                                     cubit.userModel?.fullName?.split(' ')[0] :
                                                     cubit.userModel?.fullName) : '...'}',
+                                                    textAlign: TextAlign.center,
                                                     style: const TextStyle(
                                                       fontSize: 24.0,
                                                       fontWeight:
@@ -651,16 +661,16 @@ class _ChatScreenState extends State<ChatScreen>
                                                 ),
                                                 FadeInRight(
                                                   duration: const Duration(
-                                                      milliseconds: 400),
+                                                      milliseconds: 500),
                                                   child: const Text(
                                                     'Tell me what\'s on your mind.',
+                                                    textAlign: TextAlign.center,
                                                     style: TextStyle(
                                                       fontSize: 19.0,
                                                     ),
                                                   ),
                                                 ),
-                                              ] else if (cubit
-                                                  .messages.isEmpty) ...[
+                                              ] else if (cubit.messages.isEmpty) ...[
                                                 FadeIn(
                                                   duration: const Duration(
                                                       milliseconds: 300),
@@ -712,354 +722,52 @@ class _ChatScreenState extends State<ChatScreen>
                               const SizedBox(
                                 height: 8.0,
                               ),
-                              Material(
-                                elevation: 30.0,
-                                clipBehavior: Clip.antiAlias,
-                                color: themeCubit.isDarkTheme
-                                    ? firstColor
-                                    : secondColor,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12.0,
-                                    vertical: 20.0,
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      if (cubit.image != null && (getSizeImage(cubit) <= 5242880)) ...[
-                                        FadeInDown(
-                                          duration:
-                                              const Duration(milliseconds: 300),
-                                          child: buildImageUpload(
-                                              cubit, themeCubit),
-                                        ),
-                                        const SizedBox(
-                                          height: 10.0,
-                                        ),
-                                      ],
-                                      Row(
-                                        children: [
-                                          if (cubit.image == null &&
-                                              !isLoading &&
-                                              !isMicLoading &&
-                                              !isStartListening &&
-                                              checkCubit.hasInternet)
-                                            FadeInLeft(
-                                              duration: const Duration(
-                                                  milliseconds: 100),
-                                              child: defaultIconButton(
-                                                toolTip: 'Add image',
-                                                elevation: 2.0,
-                                                radius1: 50.0,
-                                                radius2: 20.0,
-                                                function: () async {
-                                                  await showOptionsForUploadingImage();
-                                                },
-                                                padding: 8.0,
-                                                icon: Icons
-                                                    .add_photo_alternate_outlined,
-                                                color: themeCubit.isDarkTheme
-                                                    ? Colors.grey.shade700
-                                                        .withOpacity(.7)
-                                                    : Colors.white,
-                                                colorIcon:
-                                                    themeCubit.isDarkTheme
-                                                        ? Colors.white
-                                                        : Colors.black,
-                                              ),
-                                            ),
-                                          const SizedBox(
-                                            width: 10.0,
-                                          ),
-                                          Expanded(
-                                            child: (!isMicActive)
-                                                ? TextFormField(
-                                                    controller: msgController,
-                                                    keyboardType:
-                                                        TextInputType.multiline,
-                                                    maxLines: null,
-                                                    textCapitalization:
-                                                        TextCapitalization
-                                                            .sentences,
-                                                    focusNode: focusNode,
-                                                    style: const TextStyle(
-                                                      letterSpacing: 0.6,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                    decoration: InputDecoration(
-                                                      hintText: 'Type ...',
-                                                      border:
-                                                          OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(14.0),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                          width: 2.0,
-                                                        ),
-                                                      ),
-                                                      constraints:
-                                                          BoxConstraints(
-                                                        maxHeight: MediaQuery.of(context).size.height / 4.5,
-                                                      ),
-                                                    ),
-                                                    onChanged: (value) {
-                                                      if (checkCubit
-                                                          .hasInternet) {
-                                                        if (value.isNotEmpty &&
-                                                            value.trim().isNotEmpty) {
-                                                          if (!formKey.currentState!.validate()) {
-                                                            setState(() {
-                                                              isVisible = false;
-                                                              isVocalVisible = false;
-                                                            });
-                                                          } else {
-                                                            setState(() {
-                                                              isVisible = true;
-                                                              isVocalVisible = false;
-                                                            });
-                                                          }
-                                                        } else {
-                                                          setState(() {
-                                                            isVisible = false;
-                                                            isVocalVisible = true;
-                                                          });
-                                                        }
-                                                      }
-                                                    },
-                                                    validator: (value) {
-                                                      if (value != null &&
-                                                          value.length > 10000) {
-                                                        return 'Text is too large';
-                                                      }
-                                                      return null;
-                                                    },
-                                                  )
-                                                : Center(
-                                                    child: ConditionalBuilder(
-                                                      condition: !isMicLoading,
-                                                      builder: (context) =>
-                                                          FadeIn(
-                                                        duration:
-                                                            const Duration(
-                                                                milliseconds:
-                                                                    200),
-                                                        child: GestureDetector(
-                                                          onTap: () async {
-                                                            if (checkCubit
-                                                                .hasInternet) {
-                                                              await vocalConfig(
-                                                                  local);
-                                                            } else {
-                                                              showFlutterToast(
-                                                                  message:
-                                                                      'No Internet Connection',
-                                                                  state:
-                                                                      ToastStates
-                                                                          .error,
-                                                                  context:
-                                                                      context);
-                                                            }
-                                                          },
-                                                          child: AvatarGlow(
-                                                            startDelay:
-                                                                const Duration(
-                                                                    milliseconds:
-                                                                        650),
-                                                            duration:
-                                                                const Duration(
-                                                                    milliseconds:
-                                                                        1300),
-                                                            glowRadiusFactor:
-                                                                2.5,
-                                                            glowColor: Theme.of(
-                                                                    context)
-                                                                .colorScheme
-                                                                .primary
-                                                                .withOpacity(
-                                                                    .2),
-                                                            glowShape:
-                                                                BoxShape.circle,
-                                                            animate:
-                                                                isStartListening,
-                                                            curve: Curves
-                                                                .fastOutSlowIn,
-                                                            glowCount: 2,
-                                                            repeat: true,
-                                                            child: CircleAvatar(
-                                                              radius: 40.0,
-                                                              backgroundColor: (!isStartListening)
-                                                                  ? (themeCubit
-                                                                          .isDarkTheme
-                                                                      ? Colors
-                                                                          .grey
-                                                                          .shade300
-                                                                      : Colors
-                                                                          .black54
-                                                                          .withOpacity(
-                                                                              .1))
-                                                                  : Theme.of(
-                                                                          context)
-                                                                      .colorScheme
-                                                                      .primary,
-                                                              child:
-                                                                  CircleAvatar(
-                                                                radius: 36.0,
-                                                                child: Icon(
-                                                                  (!isStartListening)
-                                                                      ? EvaIcons
-                                                                          .micOffOutline
-                                                                      : EvaIcons
-                                                                          .micOutline,
-                                                                  size:
-                                                                      (!isStartListening)
-                                                                          ? 28.0
-                                                                          : 30.0,
-                                                                  color: Colors
-                                                                      .white,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      fallback: (context) => FadeIn(
-                                                          duration:
-                                                              const Duration(
-                                                                  milliseconds:
-                                                                      200),
-                                                          child:
-                                                              LoadingIndicator(
-                                                                  os: getOs())),
-                                                    ),
-                                                  ),
+                              FadeInUp(
+                                duration: const Duration(milliseconds: 400),
+                                child: Material(
+                                  clipBehavior: Clip.antiAlias,
+                                  color: themeCubit.isDarkTheme
+                                      ? firstColor
+                                      : secondColor,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12.0,
+                                      vertical: 20.0,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        if (cubit.image != null && (getSizeImage(cubit) <= 5242880)) ...[
+                                          FadeInDown(
+                                            duration:
+                                                const Duration(milliseconds: 300),
+                                            child: buildImageUpload(
+                                                cubit, themeCubit),
                                           ),
                                           const SizedBox(
-                                            width: 10.0,
+                                            height: 10.0,
                                           ),
-                                          ConditionalBuilder(
-                                            condition: !isLoading,
-                                            builder: (context) => Visibility(
-                                              visible: isVisible,
-                                              child: FadeIn(
-                                                duration: const Duration(
-                                                    milliseconds: 100),
-                                                child: Tooltip(
-                                                  message: 'Send',
-                                                  enableFeedback: true,
-                                                  child: InkWell(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20.0),
-                                                    onTap: () async {
-                                                      focusNode.unfocus();
-                                                      if (checkCubit
-                                                          .hasInternet) {
-                                                        String message =
-                                                            msgController.text;
-                                                        msgController.clear();
-                                                        setState(() {
-                                                          isLoading = true;
-                                                        });
-                                                        if (cubit.image !=
-                                                            null) {
-                                                          await Future.delayed(
-                                                                  const Duration(
-                                                                      milliseconds:
-                                                                          200))
-                                                              .then((value) {
-                                                            cubit.clearImage();
-                                                          });
-                                                        }
-                                                        await cubit.sendMessage(
-                                                          message: message,
-                                                          dateTime: DateTime.now().toString(),
-                                                          timesTamp: Timestamp.now(),
-                                                          idChat: (cubit.chats.isNotEmpty)
-                                                              ? cubit.groupedIdChats.values.elementAt(
-                                                                      cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0]
-                                                              : null,
-                                                        );
-                                                      } else {
-                                                        showFlutterToast(
-                                                            message:
-                                                                'No Internet Connection',
-                                                            state: ToastStates
-                                                                .error,
-                                                            context: context);
-                                                      }
-                                                    },
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              8.0),
-                                                      child: Icon(
-                                                        Icons.send_rounded,
-                                                        color: Theme.of(context)
-                                                            .colorScheme
-                                                            .primary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            fallback: (context) => FadeInRight(
-                                              duration: const Duration(
-                                                  milliseconds: 100),
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 4.0,
-                                                ),
-                                                child: LoadingIndicatorKit(
-                                                    os: getOs()),
-                                              ),
-                                            ),
-                                          ),
-                                          if (!isLoading &&
-                                              !isMicLoading &&
-                                              !isStartListening &&
-                                              checkCubit.hasInternet)
-                                            Visibility(
-                                              visible: isVocalVisible,
-                                              child: FadeInRight(
+                                        ],
+                                        Row(
+                                          children: [
+                                            if (cubit.image == null &&
+                                                !isLoading &&
+                                                !isMicLoading &&
+                                                !isStartListening &&
+                                                checkCubit.hasInternet)
+                                              FadeInLeft(
                                                 duration: const Duration(
                                                     milliseconds: 100),
                                                 child: defaultIconButton(
-                                                  toolTip: (!isMicActive)
-                                                      ? 'Mic'
-                                                      : 'Close',
+                                                  toolTip: 'Add image',
                                                   elevation: 2.0,
                                                   radius1: 50.0,
                                                   radius2: 20.0,
-                                                  function: () {
-                                                    if (!isMicActive) {
-                                                      Future.delayed(
-                                                              const Duration(
-                                                                  milliseconds:
-                                                                      300))
-                                                          .then((value) async {
-                                                        await speakConfirmation();
-                                                      });
-                                                    } else {
-                                                      setState(() {
-                                                        isCanSpeak = false;
-                                                        if (isSpeaking) {
-                                                          isSpeaking = false;
-                                                          flutterTts.stop();
-                                                        }
-                                                      });
-                                                    }
-                                                    setState(() {
-                                                      isMicActive =
-                                                          !isMicActive;
-                                                    });
+                                                  function: () async {
+                                                    await showOptionsForUploadingImage();
                                                   },
                                                   padding: 8.0,
-                                                  icon: (!isMicActive)
-                                                      ? EvaIcons.micOutline
-                                                      : Icons.close_rounded,
+                                                  icon: Icons
+                                                      .add_photo_alternate_outlined,
                                                   color: themeCubit.isDarkTheme
                                                       ? Colors.grey.shade700
                                                           .withOpacity(.7)
@@ -1070,10 +778,321 @@ class _ChatScreenState extends State<ChatScreen>
                                                           : Colors.black,
                                                 ),
                                               ),
+                                            const SizedBox(
+                                              width: 10.0,
                                             ),
-                                        ],
-                                      ),
-                                    ],
+                                            Expanded(
+                                              child: (!isMicActive)
+                                                  ? FadeInUp(
+                                                   duration: const Duration(milliseconds: 200),
+                                                    child: TextFormField(
+                                                        controller: msgController,
+                                                        keyboardType: TextInputType.multiline,
+                                                        maxLines: null,
+                                                        textCapitalization: TextCapitalization.sentences,
+                                                        focusNode: focusNode,
+                                                        clipBehavior: Clip.antiAlias,
+                                                        style: const TextStyle(
+                                                          letterSpacing: 0.6,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                        decoration: InputDecoration(
+                                                          hintText: 'Type ...',
+                                                          border:
+                                                              OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(14.0),
+                                                            borderSide:
+                                                                const BorderSide(
+                                                              width: 2.0,
+                                                            ),
+                                                          ),
+                                                          constraints:
+                                                              BoxConstraints(
+                                                            maxHeight: MediaQuery.of(context).size.height / 4.5,
+                                                          ),
+                                                        ),
+                                                        onChanged: (value) {
+                                                          if (checkCubit
+                                                              .hasInternet) {
+                                                            if (value.isNotEmpty &&
+                                                                value.trim().isNotEmpty) {
+                                                              if (!formKey.currentState!.validate()) {
+                                                                setState(() {
+                                                                  isVisible = false;
+                                                                  isVocalVisible = false;
+                                                                });
+                                                              } else {
+                                                                setState(() {
+                                                                  isVisible = true;
+                                                                  isVocalVisible = false;
+                                                                });
+                                                              }
+                                                            } else {
+                                                              setState(() {
+                                                                isVisible = false;
+                                                                isVocalVisible = true;
+                                                              });
+                                                            }
+                                                          }
+                                                        },
+                                                        validator: (value) {
+                                                          if (value != null &&
+                                                              value.length > 10000) {
+                                                            return 'Text is too large';
+                                                          }
+                                                          return null;
+                                                        },
+                                                      ),
+                                                  )
+                                                  : Center(
+                                                      child: ConditionalBuilder(
+                                                        condition: !isMicLoading,
+                                                        builder: (context) =>
+                                                            FadeInUp(
+                                                          duration:
+                                                              const Duration(
+                                                                  milliseconds:
+                                                                      200),
+                                                          child: GestureDetector(
+                                                            onTap: () async {
+                                                              if (checkCubit
+                                                                  .hasInternet) {
+                                                                await vocalConfig(
+                                                                    local);
+                                                              } else {
+                                                                showFlutterToast(
+                                                                    message:
+                                                                        'No Internet Connection',
+                                                                    state:
+                                                                        ToastStates
+                                                                            .error,
+                                                                    context:
+                                                                        context);
+                                                              }
+                                                            },
+                                                            child: AvatarGlow(
+                                                              startDelay:
+                                                                  const Duration(
+                                                                      milliseconds:
+                                                                          650),
+                                                              duration:
+                                                                  const Duration(
+                                                                      milliseconds:
+                                                                          1300),
+                                                              glowRadiusFactor:
+                                                                  2.5,
+                                                              glowColor: Theme.of(
+                                                                      context)
+                                                                  .colorScheme
+                                                                  .primary
+                                                                  .withOpacity(
+                                                                      .2),
+                                                              glowShape:
+                                                                  BoxShape.circle,
+                                                              animate:
+                                                                  isStartListening,
+                                                              curve: Curves
+                                                                  .fastOutSlowIn,
+                                                              glowCount: 2,
+                                                              repeat: true,
+                                                              child: CircleAvatar(
+                                                                radius: 40.0,
+                                                                backgroundColor: (!isStartListening)
+                                                                    ? (themeCubit
+                                                                            .isDarkTheme
+                                                                        ? Colors
+                                                                            .grey
+                                                                            .shade300
+                                                                        : Colors
+                                                                            .black54
+                                                                            .withOpacity(
+                                                                                .1))
+                                                                    : Theme.of(
+                                                                            context)
+                                                                        .colorScheme
+                                                                        .primary,
+                                                                child:
+                                                                    CircleAvatar(
+                                                                  radius: 36.0,
+                                                                  child: Icon(
+                                                                    (!isStartListening)
+                                                                        ? EvaIcons
+                                                                            .micOffOutline
+                                                                        : EvaIcons
+                                                                            .micOutline,
+                                                                    size:
+                                                                        (!isStartListening)
+                                                                            ? 28.0
+                                                                            : 30.0,
+                                                                    color: Colors
+                                                                        .white,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        fallback: (context) => FadeIn(
+                                                            duration:
+                                                                const Duration(
+                                                                    milliseconds:
+                                                                        200),
+                                                            child:
+                                                                LoadingIndicator(
+                                                                    os: getOs())),
+                                                      ),
+                                                    ),
+                                            ),
+                                            const SizedBox(
+                                              width: 10.0,
+                                            ),
+                                            ConditionalBuilder(
+                                              condition: !isLoading,
+                                              builder: (context) => Visibility(
+                                                visible: isVisible,
+                                                child: FadeIn(
+                                                  duration: const Duration(
+                                                      milliseconds: 100),
+                                                  child: Tooltip(
+                                                    message: 'Send',
+                                                    enableFeedback: true,
+                                                    child: InkWell(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              20.0),
+                                                      onTap: () async {
+                                                        focusNode.unfocus();
+                                                        if (checkCubit
+                                                            .hasInternet) {
+                                                          String message =
+                                                              msgController.text;
+                                                          msgController.clear();
+                                                          setState(() {
+                                                            isLoading = true;
+                                                          });
+                                                          if (cubit.image !=
+                                                              null) {
+                                                            await Future.delayed(
+                                                                    const Duration(
+                                                                        milliseconds:
+                                                                            200))
+                                                                .then((value) {
+                                                              cubit.clearImage();
+                                                            });
+                                                          }
+                                                          await cubit.sendMessage(
+                                                            message: message,
+                                                            dateTime: DateTime.now().toString(),
+                                                            timesTamp: Timestamp.now(),
+                                                            idChat: (cubit.chats.isNotEmpty)
+                                                                ? cubit.groupedIdChats.values.elementAt(
+                                                                        cubit.globalIndex ?? 0)[cubit.currentIndex ?? 0]
+                                                                : null,
+                                                          );
+                                                        } else {
+                                                          showFlutterToast(
+                                                              message:
+                                                                  'No Internet Connection',
+                                                              state: ToastStates
+                                                                  .error,
+                                                              context: context);
+                                                        }
+                                                      },
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                                8.0),
+                                                        child: Icon(
+                                                          Icons.send_rounded,
+                                                          color: Theme.of(context)
+                                                              .colorScheme
+                                                              .primary,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              fallback: (context) => FadeInRight(
+                                                duration: const Duration(
+                                                    milliseconds: 100),
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                    horizontal: 2.0,
+                                                  ),
+                                                  child: SizedBox(
+                                                    width: 27.0,
+                                                    height: 27.0,
+                                                    child: LoadingIndicator(
+                                                        os: getOs(),
+                                                      strWidth: 3.2,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            if (!isLoading &&
+                                                !isMicLoading &&
+                                                !isStartListening &&
+                                                checkCubit.hasInternet)
+                                              Visibility(
+                                                visible: isVocalVisible,
+                                                child: FadeInRight(
+                                                  duration: const Duration(
+                                                      milliseconds: 100),
+                                                  child: defaultIconButton(
+                                                    toolTip: (!isMicActive)
+                                                        ? 'Mic'
+                                                        : 'Close',
+                                                    elevation: 2.0,
+                                                    radius1: 50.0,
+                                                    radius2: 20.0,
+                                                    function: () {
+                                                      if (!isMicActive) {
+                                                        Future.delayed(
+                                                                const Duration(
+                                                                    milliseconds:
+                                                                        300))
+                                                            .then((value) async {
+                                                          await speakConfirmation();
+                                                        });
+                                                      } else {
+                                                        setState(() {
+                                                          isCanSpeak = false;
+                                                          if (isSpeaking) {
+                                                            isSpeaking = false;
+                                                            flutterTts.stop();
+                                                          }
+                                                        });
+                                                      }
+                                                      setState(() {
+                                                        isMicActive =
+                                                            !isMicActive;
+                                                      });
+                                                    },
+                                                    padding: 8.0,
+                                                    icon: (!isMicActive)
+                                                        ? EvaIcons.micOutline
+                                                        : Icons.close_rounded,
+                                                    color: themeCubit.isDarkTheme
+                                                        ? Colors.grey.shade700
+                                                            .withOpacity(.7)
+                                                        : Colors.white,
+                                                    colorIcon:
+                                                        themeCubit.isDarkTheme
+                                                            ? Colors.white
+                                                            : Colors.black,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1132,7 +1151,9 @@ class _ChatScreenState extends State<ChatScreen>
                           clipBehavior: Clip.antiAlias,
                         );
                       }
-                      return child;
+                      return FadeIn(
+                          duration: const Duration(milliseconds: 200),
+                          child: child);
                     },
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
@@ -1165,9 +1186,7 @@ class _ChatScreenState extends State<ChatScreen>
                 radius1: 20.0,
                 radius2: 20.0,
                 padding: 3.0,
-                function: () {
-                  cubit.clearImage(isClearAll: true);
-                },
+                function: () {cubit.clearImage(isClearAll: true);},
                 icon: Icons.close_rounded,
                 color: themeCubit.isDarkTheme
                     ? Colors.grey.shade700.withOpacity(.7)
@@ -1268,10 +1287,7 @@ class _ChatScreenState extends State<ChatScreen>
   Widget drawer(isDark, UserModel? model, state) => Builder(
     builder: (dialogContext) {
 
-      if(AppCubit.get(context).globalIndex != null
-          && AppCubit.get(context).currentIndex != null &&
-          CheckCubit.get(context).hasInternet) {
-
+      if(CheckCubit.get(context).hasInternet) {
         Future.delayed(const Duration(milliseconds: 300)).then((value) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             scrollToCurrentIndex(AppCubit.get(context).globalIndex ?? 0,
@@ -1283,7 +1299,7 @@ class _ChatScreenState extends State<ChatScreen>
       return Drawer(
             elevation: 10.0,
             clipBehavior: Clip.antiAlias,
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            backgroundColor: isDark ? firstColor : secondColor,
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -1400,13 +1416,12 @@ class _ChatScreenState extends State<ChatScreen>
                                         }
                                       },
                                       style: ButtonStyle(
-                                        shape: MaterialStatePropertyAll(
+                                        shape: WidgetStatePropertyAll(
                                           RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(10.0),
+                                            borderRadius: BorderRadius.circular(10.0),
                                           ),
                                         ),
-                                        side: MaterialStatePropertyAll(
+                                        side: WidgetStatePropertyAll(
                                           BorderSide(
                                             width: 1.0,
                                             color: (AppCubit.get(context)
@@ -1505,6 +1520,8 @@ class _ChatScreenState extends State<ChatScreen>
                                   },
                                   child: ListView.separated(
                                     controller: anotherScrollController,
+                                    physics: const BouncingScrollPhysics(),
+                                    clipBehavior: Clip.antiAlias,
                                     itemBuilder: (context, i) {
                                       String status = AppCubit.get(context).groupedChats.keys.elementAt(i);
                                       List<dynamic> chats = AppCubit.get(context).groupedChats.values.elementAt(i);
@@ -1612,7 +1629,7 @@ class _ChatScreenState extends State<ChatScreen>
                         child: ElevatedButton(
                           clipBehavior: Clip.antiAlias,
                           style: ButtonStyle(
-                            side: MaterialStatePropertyAll(
+                            side: WidgetStatePropertyAll(
                               BorderSide(
                                 width: 1.5,
                                 color: redColor,
@@ -1660,7 +1677,7 @@ class _ChatScreenState extends State<ChatScreen>
               'Do you want to sign out?',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 18.0,
+                fontSize: 17.0,
                 letterSpacing: 0.5,
                 fontWeight: FontWeight.bold,
               ),
@@ -1732,8 +1749,15 @@ class _ChatScreenState extends State<ChatScreen>
           },
           onLongPress: () async {
             if(CheckCubit.get(context).hasInternet) {
+              if((AppCubit.get(context).globalIndex == gIndex) &&
+                  (AppCubit.get(context).currentIndex == actualIndex)) {
+                setState(() {isChatSelected = true;});
+              }
+              AppCubit.get(context).selectAndChangeIndexing(
+                  innerIndex: actualIndex, gIndex: gIndex);
               AppCubit.get(context).getMessages(idChat: idChat, isRemoving: true);
-              await showOptionsForChat(idChat: idChat, chatName: chat['name'],);
+              await showOptionsForChat(
+                  idChat: idChat, chatName: chat['name'], isChatSelected: isChatSelected);
             } else {
               showFlutterToast(
                   message: 'No Internet Connection',
@@ -1770,6 +1794,7 @@ class _ChatScreenState extends State<ChatScreen>
   Future<dynamic> showOptionsForChat({
     required String idChat,
     required String chatName,
+    required bool isChatSelected,
   }) =>
       showModalBottomSheet(
         showDragHandle: true,
@@ -1812,7 +1837,7 @@ class _ChatScreenState extends State<ChatScreen>
                       setState(() {
                         isChatEmpty = false;
                       });
-                      showAlertRemove(context, idChat);
+                      showAlertRemove(context, idChat, isChatSelected);
                     },
                     leading: Icon(
                       Icons.delete_outline_rounded,
@@ -1880,7 +1905,7 @@ class _ChatScreenState extends State<ChatScreen>
                   child: const Text(
                     'Cancel',
                     style: TextStyle(
-                      fontSize: 16.0,
+                      fontSize: 15.0,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1909,7 +1934,7 @@ class _ChatScreenState extends State<ChatScreen>
                     child: Text(
                       'Rename',
                       style: TextStyle(
-                        fontSize: 16.0,
+                        fontSize: 15.0,
                         color: greenColor,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1924,7 +1949,7 @@ class _ChatScreenState extends State<ChatScreen>
     );
   }
 
-  dynamic showAlertRemove(BuildContext context, idChat) {
+  dynamic showAlertRemove(BuildContext context, idChat, isChatSelected) {
     return showDialog(
       context: context,
       builder: (dialogContext) {
@@ -1937,7 +1962,7 @@ class _ChatScreenState extends State<ChatScreen>
               'Do you want to remove this chat?',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 18.0,
+                fontSize: 17.0,
                 color: redColor.withOpacity(.9),
                 letterSpacing: 0.6,
                 fontWeight: FontWeight.bold,
@@ -1959,7 +1984,12 @@ class _ChatScreenState extends State<ChatScreen>
               TextButton(
                 onPressed: () {
                   if (CheckCubit.get(context).hasInternet) {
-                    AppCubit.get(context).removeChat(idChat: idChat);
+                    if(isChatSelected) {
+                      AppCubit.get(context).removeChat(
+                          idChat: idChat, isChatSelected: isChatSelected);
+                    } else {
+                      AppCubit.get(context).removeChat(idChat: idChat);
+                    }
                     Navigator.pop(dialogContext);
                     showLoading(context);
                   } else {
@@ -1995,7 +2025,7 @@ class _ChatScreenState extends State<ChatScreen>
                 child: Container(
                   padding: const EdgeInsets.all(12.0),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12.0),
+                    borderRadius: BorderRadius.circular(20.0),
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   clipBehavior: Clip.antiAlias,
@@ -2020,7 +2050,7 @@ class _ChatScreenState extends State<ChatScreen>
                                 showFullImage(msg['image_url']);
                               },
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12.0),
+                                borderRadius: BorderRadius.circular(16.0),
                                 child: Image.network((msg['image_url']),
                                   width: 150.0,
                                   height: 150.0,
@@ -2031,7 +2061,7 @@ class _ChatScreenState extends State<ChatScreen>
                                       return showShimmerLoading(
                                         width: 150.0,
                                         height: 150.0,
-                                        radius: 12.0,
+                                        radius: 16.0,
                                       );
                                     }
                                     return FadeIn(
@@ -2044,7 +2074,7 @@ class _ChatScreenState extends State<ChatScreen>
                                       height: 150.0,
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(
-                                          12.0,
+                                          16.0,
                                         ),
                                         border: Border.all(
                                           width: 1.0,
@@ -2086,7 +2116,7 @@ class _ChatScreenState extends State<ChatScreen>
                 child: Container(
                   padding: const EdgeInsets.all(12.0),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12.0),
+                    borderRadius: BorderRadius.circular(20.0),
                     border: Border.all(
                       width: 1.5,
                       color: ThemeCubit.get(context).isDarkTheme
@@ -2124,34 +2154,48 @@ class _ChatScreenState extends State<ChatScreen>
               ),
       );
 
+
   List<TextSpan> buildTextSpans(String inputText) {
     final RegExp urlRegex = RegExp(
-      r'\b(?:https?|ftp)://[\w\-?=%.]+\.[a-zA-Z]{2,}(?:/\S*)?\b',
-      caseSensitive: false,
-    );
+      r"\b(?:https?|ftp)://[^\s/$.?#].\S*\b",
+      caseSensitive: false);
 
     final RegExp titleRegex = RegExp(
-      r'\*{2}(.*?)\*{2}',
-      caseSensitive: false,
-    );
+      r'\*\*(.*?)\*\*',
+      caseSensitive: true);
 
     final RegExp bulletRegex = RegExp(
-      r'^- `(.+?)`$',
-      multiLine: true,
-    );
+      r'^\s*-\s*`(.+?)`',
+      multiLine: true);
 
-    final RegExp codeRegex = RegExp(r'```([a-zA-Z]+)\n(.*?)\n```', dotAll: true);
+    final RegExp codeRegex = RegExp(
+        r'```([a-zA-Z]*)\n([\s\S]*?)\n```',
+        dotAll: true);
 
+    final RegExp emailRegex = RegExp(
+      r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+      caseSensitive: false);
+
+    final RegExp hashtagRegex = RegExp(
+      r'\B#\w*[a-zA-Z]+\w*',
+      caseSensitive: false);
 
     List<TextSpan> spans = [];
     int previousEnd = 0;
 
-    Iterable<Match> urlMatches = urlRegex.allMatches(inputText);
-    Iterable<Match> titleMatches = titleRegex.allMatches(inputText);
-    Iterable<Match> bulletMatches = bulletRegex.allMatches(inputText);
-    Iterable<Match> codeMatches = codeRegex.allMatches(inputText);
+    List<Match> allMatches = [
+      ...urlRegex.allMatches(inputText),
+      ...titleRegex.allMatches(inputText),
+      ...bulletRegex.allMatches(inputText),
+      ...codeRegex.allMatches(inputText),
+      ...emailRegex.allMatches(inputText),
+      ...hashtagRegex.allMatches(inputText),
+    ];
 
-    for (Match match in urlMatches) {
+    allMatches.sort((a, b) => a.start.compareTo(b.start));
+
+    for (Match match in allMatches) {
+
       if (match.start > previousEnd) {
         spans.add(
           TextSpan(
@@ -2164,115 +2208,97 @@ class _ChatScreenState extends State<ChatScreen>
           ),
         );
       }
-      spans.add(
-        TextSpan(
-          text: match.group(0),
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () async {
-              if (CheckCubit.get(context).hasInternet) {
-                await HapticFeedback.vibrate();
-                String url = match.group(0) ?? '';
-                if (!url.contains('https') || !url.contains('http')) {
-                  url = 'https://${match.group(0)}';
-                }
-                await lunch(url).then((value) {
+
+      if(urlRegex.hasMatch(match.group(0)!)) {
+        spans.add(
+          TextSpan(
+            text: match.group(0),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () async {
+                if (CheckCubit.get(context).hasInternet) {
+                  await HapticFeedback.vibrate();
+                  String url = match.group(0) ?? '';
+                  if (!url.contains('https') || !url.contains('http')) {
+                    url = 'https://${match.group(0)}';
+                  }
+                  await lunch(url).then((value) {
+                    showFlutterToast(
+                        message: 'Opening ...',
+                        state: ToastStates.success,
+                        context: context);
+                  }).catchError((error) {
+                    showFlutterToast(
+                        message: error.toString(),
+                        state: ToastStates.error,
+                        context: context);
+                  });
+                } else {
                   showFlutterToast(
-                      message: 'Opening ...',
-                      state: ToastStates.success,
-                      context: context);
-                }).catchError((error) {
-                  showFlutterToast(
-                      message: error.toString(),
+                      message: 'No Internet Connection',
                       state: ToastStates.error,
                       context: context);
-                });
-              } else {
-                showFlutterToast(
-                    message: 'No Internet Connection',
-                    state: ToastStates.error,
-                    context: context);
-              }
-            },
-        ),
-      );
-      previousEnd = match.end;
-    }
+                }
+              },
+          ),
+        );
 
-    for (Match match in titleMatches) {
-      if (match.start > previousEnd) {
+      } else if(titleRegex.hasMatch(match.group(0)!)) {
         spans.add(
           TextSpan(
-            text: inputText.substring(previousEnd, match.start),
+            text: match.group(1),
             style: TextStyle(
-              color: ThemeCubit.get(context).isDarkTheme
-                  ? Colors.white
-                  : Colors.black,
+              color: greenColor,
+            ),
+          ),
+        );
+
+      } else if(bulletRegex.hasMatch(match.group(0)!)) {
+        spans.add(
+          TextSpan(
+            text: match.group(0),
+            style: TextStyle(
+              color: greenColor,
+            ),
+          ),
+        );
+
+      } else if(codeRegex.hasMatch(match.group(0)!)){
+        spans.add(
+          TextSpan(
+            text: match.group(0),
+            style: TextStyle(
+              color: ThemeCubit.get(context).isDarkTheme ?
+              Colors.blueGrey.shade200 : Colors.teal.shade900,
+              fontSize: 14.0,
+              fontFamily: 'Inconsolata',
+            ),
+          ),
+        );
+
+      } else if(emailRegex.hasMatch(match.group(0)!)) {
+        spans.add(
+          TextSpan(
+            text: match.group(0),
+            style: TextStyle(
+              color: greenColor,
+            ),
+          ),
+        );
+
+      } else if(hashtagRegex.hasMatch(match.group(0)!)) {
+        spans.add(
+          TextSpan(
+            text: match.group(0),
+            style: TextStyle(
+              color: greenColor,
             ),
           ),
         );
       }
-      spans.add(
-        TextSpan(
-          text: match.group(1),
-          style: TextStyle(
-            color: greenColor,
-          ),
-        ),
-      );
-      previousEnd = match.end;
-    }
 
-    for (Match match in bulletMatches) {
-      if (match.start > previousEnd) {
-        spans.add(
-          TextSpan(
-            text: inputText.substring(previousEnd, match.start),
-            style: TextStyle(
-              color: ThemeCubit.get(context).isDarkTheme
-                  ? Colors.white
-                  : Colors.black,
-            ),
-          ),
-        );
-      }
-      spans.add(
-        TextSpan(
-          text: match.group(0),
-          style: TextStyle(
-            color: greenColor,
-          ),
-        ),
-      );
-      previousEnd = match.end;
-    }
-
-    for (Match match in codeMatches) {
-      if (match.start > previousEnd) {
-        spans.add(
-          TextSpan(
-            text: inputText.substring(previousEnd, match.start),
-            style: TextStyle(
-              color: ThemeCubit.get(context).isDarkTheme
-                  ? Colors.white
-                  : Colors.black,
-            ),
-          ),
-        );
-      }
-      spans.add(
-        TextSpan(
-          text: match.group(0),
-          style: TextStyle(
-            color: ThemeCubit.get(context).isDarkTheme ?
-            Colors.blueGrey.shade200 : Colors.teal.shade900,
-            fontSize: 14.0,
-            fontFamily: 'Inconsolata',
-          ),
-        ),
-      );
       previousEnd = match.end;
     }
 

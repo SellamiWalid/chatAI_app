@@ -226,19 +226,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               builder: (context) => defaultButton(
                                   text: 'Sign Up',
                                   onPress: () {
-
                                     focusNode1.unfocus();
                                     focusNode2.unfocus();
                                     focusNode3.unfocus();
-
                                     if(checkCubit.hasInternet) {
                                       if(formKey.currentState!.validate()) {
-
                                         cubit.userSignUp(
                                             fullName: fullNameController.text,
                                             email: emailController.text,
                                             password: passwordController.text);
-
                                       }
                                     } else {
                                      showFlutterToast(
@@ -258,7 +254,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
               ),
             );
-
           },
         );
       },

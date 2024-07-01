@@ -69,7 +69,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         'Your intelligent conversational assistant',
                         style: TextStyle(
                           fontSize: 17.0,
-                          fontWeight: FontWeight.bold,
+                          // fontWeight: FontWeight.bold,
                           letterSpacing: 0.6,
                         ),
                       ),
@@ -84,12 +84,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                               text: 'Google Gemini Model',
                               style: TextStyle(
                                 color: HexColor('0c77fa'),
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                           style: const TextStyle(
                             fontSize: 17.0,
-                            fontWeight: FontWeight.bold,
+                            // fontWeight: FontWeight.bold,
                             letterSpacing: 0.6,
                           ),
                         ),
@@ -100,8 +101,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 const SizedBox(
                   height: 30.0,
                 ),
-                FadeIn(
-                  duration: const Duration(milliseconds: 400),
+                FadeInUp(
                   child: AvatarGlow(
                     startDelay: const Duration(milliseconds: 650),
                     duration: const Duration(milliseconds: 1300),
@@ -148,7 +148,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   Future<void> getStarted(context) async {
-    await CacheHelper.saveData(key: 'isStarted', value: true).then((value) {
+    await CacheHelper.saveCachedData(key: 'isStarted', value: true).then((value) {
       if(value == true) {
         navigateAndNotReturn(context: context, screen: const AuthOptionsScreen());
       }

@@ -8,17 +8,32 @@ import 'package:eva_icons_flutter/eva_icons_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_styled_toast/flutter_styled_toast.dart';
-import 'package:hexcolor/hexcolor.dart';
 
 navigateTo({required BuildContext context , required Widget screen}) =>
-    Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
-
+    Navigator.push(context, PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => screen,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+      ));
 
 
 navigateAndNotReturn({required BuildContext context, required Widget screen}) =>
-    Navigator.pushAndRemoveUntil(context,
-        MaterialPageRoute(builder: (context) => screen), (route) => false);
-
+    Navigator.pushAndRemoveUntil(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => screen,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+                opacity: animation,
+                child: child,
+            );
+          },
+        ),
+            (route) => false);
 
 
 Route createRoute({required screen}) {
@@ -289,15 +304,11 @@ void showFlutterToast({
 Color chooseToastColor({
   required ToastStates s,
 }) {
-
   return switch(s) {
-
     ToastStates.success => greenColor,
     ToastStates.warning => Colors.amber.shade900,
     ToastStates.error => Colors.red,
-
   };
-
 }
 
 
@@ -312,7 +323,7 @@ Widget defaultIconButton({
   required color,
   required colorIcon,
   double? sizeIcon,
-}) =>  Tooltip(
+}) => Tooltip(
   message: toolTip,
   enableFeedback: true,
   child: Material(
@@ -349,7 +360,8 @@ dynamic showLoading(context) => showDialog(
                 padding: const EdgeInsets.all(26.0),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18.0),
-                  color: ThemeCubit.get(context).isDarkTheme ? HexColor('141d26') : Colors.white,
+                  color: ThemeCubit.get(context).isDarkTheme
+                      ? firstColor : secondColor, // HexColor('141d26')
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: LoadingIndicator(os: getOs())),
@@ -364,6 +376,7 @@ dynamic showAlertExit(BuildContext context) {
   return showDialog(
     context: context,
     builder: (context) {
+      HapticFeedback.vibrate();
       return FadeIn(
         duration: const Duration(milliseconds: 300),
         child: AlertDialog(
@@ -371,7 +384,7 @@ dynamic showAlertExit(BuildContext context) {
             'Do you want to exit?',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 18.0,
+              fontSize: 17.0,
               letterSpacing: 0.6,
               fontWeight: FontWeight.bold,
             ),
@@ -424,7 +437,7 @@ dynamic showAlertVerification(BuildContext context) {
               'Time is up!',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 20.0,
+                fontSize: 17.0,
                 color: redColor,
                 letterSpacing: 0.6,
                 fontWeight: FontWeight.bold,
@@ -434,7 +447,7 @@ dynamic showAlertVerification(BuildContext context) {
               'You did not verify your email on specified time.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 17.0,
+                fontSize: 15.0,
                 letterSpacing: 0.6,
                 fontWeight: FontWeight.bold,
               ),
@@ -475,7 +488,7 @@ dynamic showAlertCheckConnection(BuildContext context , {bool isSplashScreen = f
               'No Internet Connection',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 18.0,
+                fontSize: 17.0,
                 letterSpacing: 0.6,
                 fontWeight: FontWeight.bold,
               ),
@@ -484,7 +497,7 @@ dynamic showAlertCheckConnection(BuildContext context , {bool isSplashScreen = f
               'You are currently offline!',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 17.0,
+                fontSize: 15.0,
                 letterSpacing: 0.6,
               ),
             ),

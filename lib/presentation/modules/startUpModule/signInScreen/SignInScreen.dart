@@ -72,7 +72,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     state: ToastStates.success,
                     context: context);
 
-                CacheHelper.saveData(key: 'uId', value: state.userId).then((value) {
+                CacheHelper.saveCachedData(key: 'uId', value: state.userId).then((value) {
 
                   uId = state.userId;
 
@@ -240,7 +240,6 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
               ),
             );
-
           },
         );
       },

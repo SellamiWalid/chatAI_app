@@ -3,24 +3,14 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 const String baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
-const String apiKey = 'Your_Api_Key';
+const String apiKey = 'your-api-key';
 
-// For Gemini Pro
 const Map<String, dynamic> generationConfig = {
-  'temperature': 0.9,
-  'topK': 1,
-  'topP': 1,
-  'maxOutputTokens': 2048,
-  'stopSequences': []
-};
-
-// For Gemini Vision
-const Map<String, dynamic> generationConfigForVision = {
-  'temperature': 0.4,
-  'topK': 32,
-  'topP': 1,
-  'maxOutputTokens': 4096,
-  'stopSequences': []
+  "temperature": 0.9,
+  "top_p": 1,
+  "top_k": 0,
+  "max_output_tokens": 2048,
+  "response_mime_type": "text/plain",
 };
 
 const List<Map<String, String>> safetySettings = [

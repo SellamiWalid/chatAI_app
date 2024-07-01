@@ -40,9 +40,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   void setTiming() {
     timing = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (seconds > 0) {
-        setState(() {
-          seconds--;
-        });
+        setState(() {seconds--;});
       } else {
         timer.cancel();
         SignUpCubit.get(context).removeAccount(userId: widget.userId!);
@@ -70,13 +68,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   void setSecondTiming() {
     anotherTiming = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (sec > 0) {
-        setState(() {
-          sec--;
-        });
+        setState(() {sec--;});
       } else {
         timer.cancel();
       }
-
       if (SignUpCubit.get(context).isVerified) {
         timer.cancel();
       }
@@ -110,15 +105,12 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
           return BlocConsumer<SignUpCubit, SignUpStates>(
             listener: (context, state) {
-
               if(state is ErrorSendEmailVerificationSignUpState) {
                 showFlutterToast(
                     message: '${state.error}',
                     state: ToastStates.error,
                     context: context);
               }
-
-
             },
             builder: (context, state) {
               var cubit = SignUpCubit.get(context);
@@ -185,6 +177,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                                         'If you don\'t verify your email in 3 minutes, your account will be deleted.',
                                     style: TextStyle(
                                       color: redColor,
+                                      fontSize: 16.0,
                                     ),
                                   ),
                                 ]),
@@ -214,9 +207,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                                         Future.delayed(const Duration(
                                                 milliseconds: 150))
                                             .then((value) {
-                                          setState(() {
-                                            sec = 45;
-                                          });
+                                          setState(() {sec = 45;});
                                           setSecondTiming();
                                         });
                                       } else {
@@ -264,20 +255,16 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                                   text: 'Continue',
                                   onPress: () {
                                     if (checkCubit.hasInternet) {
-                                      setState(() {
-                                        isLoading = true;
-                                      });
+                                      setState(() {isLoading = true;});
                                       Future.delayed(const Duration(
-                                              milliseconds: 1500))
+                                          milliseconds: 1500))
                                           .then((value) {
-                                        setState(() {
-                                          isLoading = false;
-                                        });
+                                        setState(() {isLoading = false;});
                                         showFlutterToast(
                                             message: 'Done with success',
                                             state: ToastStates.success,
                                             context: context);
-                                        CacheHelper.saveData(key: 'uId', value: widget.userId).then((value) {
+                                        CacheHelper.saveCachedData(key: 'uId', value: widget.userId).then((value) {
                                           uId = widget.userId;
                                           cubit.updateStatus(userId: widget.userId ?? uId);
                                           navigateAndNotReturn(

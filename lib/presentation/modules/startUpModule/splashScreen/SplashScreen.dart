@@ -1,4 +1,5 @@
 import 'package:animate_do/animate_do.dart';
+import 'package:chat_ai/shared/adaptive/loadingIndicator/LoadingIndicatorKit.dart';
 import 'package:chat_ai/shared/components/Components.dart';
 import 'package:chat_ai/shared/components/Constants.dart';
 import 'package:chat_ai/shared/cubits/appCubit/AppCubit.dart';
@@ -19,15 +20,51 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
 
+  bool isDisconnected = false;
+  bool isChecking = false;
+  bool isShowed = false;
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 500)).then((value) {
+
+    final startTime = DateTime.now();
+
+    Future.delayed(const Duration(seconds: 1)).then((value) {
+
       if(CheckCubit.get(context).hasInternet == true) {
         if(uId != null) AppCubit.get(context).getProfile();
-        Future.delayed(const Duration(seconds: 1)).then((value) {
+        Future.delayed(const Duration(milliseconds: 800)).then((value) {
           navigateAndNotReturn(context: context, screen: widget.startWidget);
           CheckCubit.get(context).changeStatus();
+
+          if(isChecking) {
+            setState(() {
+              isChecking = false;
+            });
+          }
+        });
+
+      } else {
+
+        Future.delayed(const Duration(milliseconds: 1500)).then((value) {
+          if(!isDisconnected) {
+            setState(() {isChecking = true;});
+
+            Future.delayed(const Duration(seconds: 5)).then((value) {
+              if(isChecking) {
+                final elapsedTime = DateTime.now().difference(startTime).inSeconds;
+
+                if (elapsedTime > 5) {
+                  setState(() {
+                    isChecking = false;
+                    isShowed = true;
+                  });
+                  showAlertCheckConnection(context, isSplashScreen: true);
+                }
+              }
+            });
+          }
         });
       }
     });
@@ -43,8 +80,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
         if(state is SuccessCheckState) {
           if(!checkCubit.hasInternet) {
-            Future.delayed(const Duration(seconds: 1)).then((value) {
-              showAlertCheckConnection(context, isSplashScreen: true);
+            Future.delayed(const Duration(milliseconds: 800)).then((value) {
+              setState(() {isDisconnected = true;});
+              if(isChecking) setState(() {isChecking = false;});
+              if(!isShowed) showAlertCheckConnection(context, isSplashScreen: true);
             });
           }
         }
@@ -52,15 +91,42 @@ class _SplashScreenState extends State<SplashScreen> {
       builder: (context, state) {
         return Scaffold(
           appBar: AppBar(),
-          body: ZoomIn(
-            duration: const Duration(milliseconds: 400),
-            child: Center(
-              child: Image.asset('assets/images/logo.png',
-                height: 170.0,
-                width: 170.0,
-                fit: BoxFit.cover,
+          body: Column(
+            children: [
+              Expanded(
+                child: ZoomIn(
+                  duration: const Duration(milliseconds: 700),
+                  child: Center(
+                    child: Image.asset('assets/images/logo.png',
+                      height: 170.0,
+                      width: 170.0,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              if(isChecking) ...[
+                FadeInUp(
+                  duration: const Duration(milliseconds: 500),
+                  child: const Text(
+                    'Checking for connection ...',
+                    style: TextStyle(
+                      fontSize: 15.0,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+                const SizedBox(
+                  height: 20.0,
+                ),
+                FadeInUp(
+                    duration: const Duration(milliseconds: 800),
+                    child: LoadingIndicatorKit(os: getOs())),
+                const SizedBox(
+                  height: 20.0,
+                ),
+              ],
+            ],
           ),
         );
       },

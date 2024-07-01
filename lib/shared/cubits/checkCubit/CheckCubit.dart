@@ -1,5 +1,6 @@
 import 'package:chat_ai/shared/cubits/checkCubit/CheckStates.dart';
 import 'package:chat_ai/shared/styles/Colors.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
@@ -42,6 +43,10 @@ class CheckCubit extends Cubit<CheckStates> {
         ),
         background: (hasInternet) ? greenColor : Colors.red,
       ) : null;
+
+      if(kDebugMode) {
+        print(hasInternet);
+      }
 
       emit(SuccessCheckState());
 
